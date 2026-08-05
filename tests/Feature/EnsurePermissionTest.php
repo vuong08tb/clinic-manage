@@ -27,6 +27,9 @@ class EnsurePermissionTest extends TestCase
 
         Route::middleware(EnsurePermission::class)
             ->get('/_test/stats', [StatsController::class, 'show']);
+
+        Route::middleware(EnsurePermission::class)
+            ->post('/_test/invoices', [InvoiceController::class, 'store']);
     }
 
     public function test_user_with_permission_can_access_route(): void
@@ -61,6 +64,16 @@ class EnsurePermissionTest extends TestCase
             ->assertOk();
     }
 
+    public function test_receptionist_cannot_create_invoice(): void
+    {
+        $receptionist = $this->createUserWithRole('RECEPTIONIST', 'receptionist-permission@test.local');
+
+        $this->actingAs($receptionist)
+            ->post('/_test/invoices')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Missing permission: INVOICES.CREATE');
+    }
+
     public function test_unauthenticated_user_receives_unauthorized_response(): void
     {
         $this->get('/_test/permissions')->assertUnauthorized();
@@ -88,6 +101,14 @@ class PermissionProbeController
 class StatsController
 {
     public function show(): array
+    {
+        return ['success' => true];
+    }
+}
+
+class InvoiceController
+{
+    public function store(): array
     {
         return ['success' => true];
     }
