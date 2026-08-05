@@ -185,13 +185,13 @@ Commit **`.env.example`** (placeholder), **không commit `.env`**. Các biến c
 
 Sau `migrate --seed`:
 
-| Role         | Email (mặc định)           | Mật khẩu                  | Ghi chú                    |
-| ------------ | -------------------------- | ------------------------- | -------------------------- |
-| ADMIN        | `admin@clinic.test`        | `Admin@123`               | Seed đầu tiên, full quyền  |
-| RECEPTIONIST | `receptionist@clinic.test` | …                         | User mẫu                   |
-| DOCTOR       | `doctor@clinic.test`       | …                         | Có hồ sơ `doctors` gắn kèm |
-| PHARMACIST   | `pharmacist@clinic.test`   | …                         | User mẫu                   |
-| CASHIER      | `cashier@clinic.test`      | …                         | User mẫu                   |
+| Role         | Email (mặc định)           | Mật khẩu    | Ghi chú                    |
+| ------------ | -------------------------- | ----------- | -------------------------- |
+| ADMIN        | `admin@clinic.test`        | `Admin@123` | Seed đầu tiên, full quyền  |
+| RECEPTIONIST | `receptionist@clinic.test` | …           | User mẫu                   |
+| DOCTOR       | `doctor@clinic.test`       | …           | Có hồ sơ `doctors` gắn kèm |
+| PHARMACIST   | `pharmacist@clinic.test`   | …           | User mẫu                   |
+| CASHIER      | `cashier@clinic.test`      | …           | User mẫu                   |
 
 Kèm dữ liệu demo: 2–3 chuyên khoa, vài bác sĩ, vài bệnh nhân, vài thuốc, và (tuỳ chọn) một chuỗi `appointment → examination → prescription → invoice → payment` mẫu.
 
@@ -337,24 +337,42 @@ Mỗi entity ghi kèm **tên tiếng Anh (Tên tiếng Việt)** trong nhãn.
 
 ```mermaid
 erDiagram
-    roles["roles (Vai trò)"] ||--o{ users["users (Người dùng)"] : "phân vai"
-    roles ||--o{ role_permissions["role_permissions (Vai trò–Quyền)"] : "gán"
-    permissions["permissions (Quyền)"] ||--o{ role_permissions : "gán"
-    users ||--o| doctors["doctors (Bác sĩ)"] : "1-1"
-    specialties["specialties (Chuyên khoa)"] ||--o{ doctors : "thuộc"
-    doctors ||--o{ appointments["appointments (Lịch khám)"] : "khám"
-    patients["patients (Bệnh nhân)"] ||--o{ appointments : "đặt"
-    appointments ||--o| examinations["examinations (Phiếu khám)"] : "1-1"
+    roles["roles (Vai trò)"]
+    users["users (Người dùng)"]
+    role_permissions["role_permissions (Vai trò - Quyền)"]
+    permissions["permissions (Quyền)"]
+    doctors["doctors (Bác sĩ)"]
+    specialties["specialties (Chuyên khoa)"]
+    appointments["appointments (Lịch khám)"]
+    patients["patients (Bệnh nhân)"]
+    examinations["examinations (Phiếu khám)"]
+    prescriptions["prescriptions (Đơn thuốc)"]
+    prescription_items["prescription_items (Chi tiết đơn)"]
+    medicines["medicines (Thuốc)"]
+    invoices["invoices (Hóa đơn)"]
+    payments["payments (Thanh toán)"]
+    activity_logs["activity_logs (Nhật ký)"]
+
+    roles ||--o{ users : "phân vai"
+    roles ||--o{ role_permissions : "gán"
+    permissions ||--o{ role_permissions : "gán"
+    users ||--o| doctors : "1-1"
+    specialties ||--o{ doctors : "thuộc"
+    doctors ||--o{ appointments : "khám"
+    patients ||--o{ appointments : "đặt"
+    appointments ||--o| examinations : "1-1"
     doctors ||--o{ examinations : "lập"
     patients ||--o{ examinations : "được khám"
-    examinations ||--o| prescriptions["prescriptions (Đơn thuốc)"] : "1-1"
+    examinations ||--o| prescriptions : "1-1"
     doctors ||--o{ prescriptions : "kê"
-    prescriptions ||--o{ prescription_items["prescription_items (Chi tiết đơn)"] : "gồm"
-    medicines["medicines (Thuốc)"] ||--o{ prescription_items : "được kê"
-    examinations ||--o| invoices["invoices (Hóa đơn)"] : "1-1"
-    invoices ||--o{ payments["payments (Thanh toán)"] : "thu"
-    users ||--o{ activity_logs["activity_logs (Nhật ký)"] : "ghi"
+    prescriptions ||--o{ prescription_items : "gồm"
+    medicines ||--o{ prescription_items : "được kê"
+    examinations ||--o| invoices : "1-1"
+    invoices ||--o{ payments : "thu"
+    users ||--o{ activity_logs : "ghi"
 ```
+
+````
 
 ### Ràng buộc bắt buộc (Postgres)
 
@@ -503,7 +521,7 @@ Thành công:
 
 ```json
 { "success": true, "message": "...", "data": {} }
-```
+````
 
 List có phân trang — thêm `meta`:
 
