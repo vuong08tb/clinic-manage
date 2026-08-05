@@ -187,7 +187,7 @@ Sau `migrate --seed`:
 
 | Role         | Email (mặc định)           | Mật khẩu                  | Ghi chú                    |
 | ------------ | -------------------------- | ------------------------- | -------------------------- |
-| ADMIN        | `admin@clinic.test`        | (ghi trong seeder/README) | Seed đầu tiên, full quyền  |
+| ADMIN        | `admin@clinic.test`        | `Admin@123`               | Seed đầu tiên, full quyền  |
 | RECEPTIONIST | `receptionist@clinic.test` | …                         | User mẫu                   |
 | DOCTOR       | `doctor@clinic.test`       | …                         | Có hồ sơ `doctors` gắn kèm |
 | PHARMACIST   | `pharmacist@clinic.test`   | …                         | User mẫu                   |
