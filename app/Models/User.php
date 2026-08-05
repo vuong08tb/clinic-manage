@@ -12,7 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['role_id', 'name', 'email', 'password'])]
+#[Fillable(['role_id', 'name', 'email', 'password', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -43,6 +43,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            // Always expose the database account flag as a strict boolean value.
+            'is_active' => 'boolean',
             'password' => 'hashed',
         ];
     }

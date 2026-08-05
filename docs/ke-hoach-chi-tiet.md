@@ -332,7 +332,6 @@ Vì không có đăng ký công khai, hệ thống phải có sẵn **một ADMI
 *Các bước thực hiện:*
 1. `AdminSeeder` tạo user role ADMIN, email cố định (vd `admin@clinic.test`), password đã `Hash::make(...)`, `is_active=true`.
 2. Ghi email + mật khẩu mặc định vào README (đã có [README mục 6](../README.md#6-tài-khoản-được-seed-sẵn)).
-3. (Khuyến nghị) seed thêm 1 user mẫu mỗi role để test RBAC nhanh.
 
 *Cách tiếp cận (từng bước):*
 1. Đăng ký thứ tự trong `DatabaseSeeder`: Role → Permission/role_permissions → Admin → (demo).
@@ -345,12 +344,12 @@ Vì không có đăng ký công khai, hệ thống phải có sẵn **một ADMI
 - **Mật khẩu mặc định của ADMIN** chưa được đề quy định. Cần tự chọn một giá trị (vd `Password@123`) và ghi rõ trong README; xác nhận mentor chấp nhận mật khẩu demo dạng này (không phải secret thật).
 
 **4. Checklist hoàn thành**
-- [ ] ADMIN được seed, login ngay sau `migrate --seed`.
-- [ ] Email/mật khẩu ghi trong README.
+- [v] ADMIN được seed, login ngay sau `migrate --seed`.
+- [v] Email/mật khẩu ghi trong README.
 
 **5. Checklist self-test**
-- [ ] `POST /api/login` với ADMIN → 200 + token.
-- [ ] `GET /api/me` → role ADMIN.
+- [v] `POST /api/login` với ADMIN → 200 + token.
+- [v] `GET /api/me` → role ADMIN.
 
 ---
 

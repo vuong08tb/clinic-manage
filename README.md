@@ -372,8 +372,6 @@ erDiagram
     users ||--o{ activity_logs : "ghi"
 ```
 
-````
-
 ### Ràng buộc bắt buộc (Postgres)
 
 - **UNIQUE:** `roles.name`, `permissions.name`, `role_permissions(role_id, permission_id)`, `users.email`, `doctors.user_id`, `patients.code`, `medicines.code`, `examinations.appointment_id`, `prescriptions.examination_id`, `prescription_items(prescription_id, medicine_id)`, `invoices.examination_id`, `invoices.invoice_code`.
