@@ -758,15 +758,18 @@ clinic/
 - **[skills/frontend.md](skills/frontend.md)** — Blade + Vite/Alpine tiêu thụ API bằng Bearer token.
 - **[skills/docker.md](skills/docker.md)** — Dockerfile, docker-compose, healthcheck, lệnh vận hành.
 
-## 20-Các-lệnh-thường-dùng-trong-quá-trình-code
+## 20. Các-lệnh-thường-dùng-trong-quá-trình-code
 
 Lệnh lấy logs docker theo container
 
 ```
 docker compose logs app      # Log ứng dụng Laravel
 docker compose logs db       # Log PostgreSQL
-docker compose logs -f app   # Theo dõi log Laravel theo thời gian thực
 docker compose logs --tail 50 app  # 50 dòng log gần nhất
+docker compose down : dừng lại hệ thống 
+docker compose logs -f app : xem lỗi docker build
+docker compose exec app php artisan route:list --path=api : check api đã có 
+docker compose exec app php artisan migrate: add migration 
 ```
 
 Lệnh truy cập bên trong container

@@ -15,4 +15,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
 // Business endpoints require both authentication and an RBAC permission.
 Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     // Register protected business API routes here.
+    // Example Route::apiResource('users', UserController::class);
+    
 });
