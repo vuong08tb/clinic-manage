@@ -193,6 +193,19 @@ Sau `migrate --seed`:
 | PHARMACIST   | `pharmacist@clinic.test`   | …           | User mẫu                   |
 | CASHIER      | `cashier@clinic.test`      | …           | User mẫu                   |
 
+### Tài khoản test CRUD User tạo thủ công
+
+Các tài khoản dưới đây được tạo khi kiểm thử API User trên môi trường development hiện tại;
+chúng không thuộc seeder và sẽ mất khi chạy `migrate:fresh --seed`.
+
+| ID | Role hiện tại | Email | Mật khẩu test | Trạng thái |
+|---:|---|---|---|---|
+| 2 | DOCTOR | `updated.receptionist@clinic.test` | `Updated@123` | Active |
+| 3 | RECEPTIONIST | `test.receptionist2@clinic.test` | `Password@123` | Active |
+| 4 | CASHIER | `test.cashier@clinic.test` | `Password@123` | Active |
+
+> Đây chỉ là credential demo dùng tại local development, không dùng cho môi trường thật.
+
 Kèm dữ liệu demo: 2–3 chuyên khoa, vài bác sĩ, vài bệnh nhân, vài thuốc, và (tuỳ chọn) một chuỗi `appointment → examination → prescription → invoice → payment` mẫu.
 
 > Không có `/api/register` công khai. Đăng nhập ngay bằng ADMIN sau khi seed.

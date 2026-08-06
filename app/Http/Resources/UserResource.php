@@ -30,10 +30,11 @@ class UserResource extends JsonResource
                 'name' => $role->name,
                 'display_name' => $role->display_name,
             ],
-            // Permissions are returned as names so clients can evaluate UI capabilities.
-            'permissions' => $role !== null && $role->relationLoaded('permissions')
-                ? $role->permissions->pluck('name')->sort()->values()->all()
-                : [],
+            // Permissions are only returned when the caller explicitly loads the RBAC context.
+            'permissions' => $this->when(
+                $role !== null && $role->relationLoaded('permissions'),
+                fn () => $role->permissions->pluck('name')->sort()->values()->all(),
+            ),
         ];
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 // Login is public because the client does not have a Bearer token yet.
@@ -14,6 +15,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
 // Business endpoints require both authentication and an RBAC permission.
 Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
-    // Register protected business API routes here.
-    // Example Route::apiResource('users', UserController::class);
+    Route::patch('/users/{user}/status', [UserController::class, 'updateStatus']);
+    Route::apiResource('users', UserController::class);
 });
