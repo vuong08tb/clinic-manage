@@ -23,13 +23,13 @@ class EnsurePermissionTest extends TestCase
         config()->set('rbac.controllers.PermissionProbeController', 'USERS');
 
         Route::middleware(EnsurePermission::class)
-            ->get('/_test/permissions', [PermissionProbeController::class, 'index']);
+            ->get('/api/_test/permissions', [PermissionProbeController::class, 'index']);
 
         Route::middleware(EnsurePermission::class)
-            ->get('/_test/stats', [StatsController::class, 'show']);
+            ->get('/api/_test/stats', [StatsController::class, 'show']);
 
         Route::middleware(EnsurePermission::class)
-            ->post('/_test/invoices', [InvoiceController::class, 'store']);
+            ->post('/api/_test/invoices', [InvoiceController::class, 'store']);
     }
 
     public function test_user_with_permission_can_access_route(): void
@@ -37,7 +37,7 @@ class EnsurePermissionTest extends TestCase
         $admin = $this->createUserWithRole('ADMIN', 'admin-permission@test.local');
 
         $this->actingAs($admin)
-            ->get('/_test/permissions')
+            ->get('/api/_test/permissions')
             ->assertOk();
     }
 
@@ -46,7 +46,7 @@ class EnsurePermissionTest extends TestCase
         $cashier = $this->createUserWithRole('CASHIER', 'cashier-permission@test.local');
 
         $this->actingAs($cashier)
-            ->get('/_test/permissions')
+            ->get('/api/_test/permissions')
             ->assertForbidden()
             ->assertJson([
                 'success' => false,
@@ -60,7 +60,7 @@ class EnsurePermissionTest extends TestCase
         $admin = $this->createUserWithRole('ADMIN', 'admin-stats@test.local');
 
         $this->actingAs($admin)
-            ->get('/_test/stats')
+            ->get('/api/_test/stats')
             ->assertOk();
     }
 
@@ -69,14 +69,14 @@ class EnsurePermissionTest extends TestCase
         $receptionist = $this->createUserWithRole('RECEPTIONIST', 'receptionist-permission@test.local');
 
         $this->actingAs($receptionist)
-            ->post('/_test/invoices')
+            ->post('/api/_test/invoices')
             ->assertForbidden()
             ->assertJsonPath('message', 'Missing permission: INVOICES.CREATE');
     }
 
     public function test_unauthenticated_user_receives_unauthorized_response(): void
     {
-        $this->get('/_test/permissions')->assertUnauthorized();
+        $this->get('/api/_test/permissions')->assertUnauthorized();
     }
 
     private function createUserWithRole(string $role, string $email): User

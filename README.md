@@ -519,7 +519,7 @@ Thành công:
 
 ```json
 { "success": true, "message": "...", "data": {} }
-````
+```
 
 List có phân trang — thêm `meta`:
 
@@ -766,10 +766,11 @@ Lệnh lấy logs docker theo container
 docker compose logs app      # Log ứng dụng Laravel
 docker compose logs db       # Log PostgreSQL
 docker compose logs --tail 50 app  # 50 dòng log gần nhất
-docker compose down : dừng lại hệ thống 
+docker compose down : dừng lại hệ thống
 docker compose logs -f app : xem lỗi docker build
-docker compose exec app php artisan route:list --path=api : check api đã có 
-docker compose exec app php artisan migrate: add migration 
+docker compose exec app php artisan route:list --path=api : check api đã có
+docker compose exec app php artisan migrate: add migration
+docker compose exec app php artisan migrate:status: check migrate đã tạo
 ```
 
 Lệnh truy cập bên trong container

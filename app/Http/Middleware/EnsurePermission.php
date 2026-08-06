@@ -3,9 +3,10 @@
 namespace App\Http\Middleware;
 
 use Closure;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class EnsurePermission
 {
@@ -16,12 +17,12 @@ class EnsurePermission
     {
         $user = $request->user();
         if ($user === null) {
-            abort(401, 'Unauthenticated.');
+            throw new AuthenticationException('Unauthenticated.');
         }
 
         $routeAction = $request->route()?->getActionName();
         if ($routeAction === null || ! str_contains($routeAction, '@')) {
-            return $this->forbidden('Permission mapping is not available for this route.');
+            throw new AccessDeniedHttpException('Permission mapping is not available for this route.');
         }
 
         [$controllerClass, $method] = explode('@', $routeAction, 2);
@@ -35,7 +36,7 @@ class EnsurePermission
         $resource = config("rbac.controllers.{$controller}");
 
         if ($resource === null) {
-            return $this->forbidden("Permission mapping is not available for {$controller}.");
+            throw new AccessDeniedHttpException("Permission mapping is not available for {$controller}.");
         }
 
         $action = config("rbac.actions.{$method}", strtoupper($method));
@@ -50,18 +51,9 @@ class EnsurePermission
     private function authorize(Request $request, Closure $next, string $permission): Response
     {
         if (! $request->user()->hasPermission($permission)) {
-            return $this->forbidden("Missing permission: {$permission}");
+            throw new AccessDeniedHttpException("Missing permission: {$permission}");
         }
 
         return $next($request);
-    }
-
-    private function forbidden(string $message): JsonResponse
-    {
-        return response()->json([
-            'success' => false,
-            'message' => $message,
-            'errors' => [],
-        ], 403);
     }
 }

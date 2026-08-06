@@ -55,7 +55,8 @@ class AuthTest extends TestCase
                     'token',
                     'user' => ['permissions'],
                 ],
-            ]);
+            ])
+            ->assertJsonMissingPath('data.data');
 
         $this->assertDatabaseCount('personal_access_tokens', 1);
     }

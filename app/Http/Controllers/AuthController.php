@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Concerns\ApiResponse;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\UserResource;
+use App\Http\Responses\ApiResponse;
 use App\Models\User;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
@@ -15,8 +15,6 @@ use Illuminate\Http\Request;
  */
 class AuthController extends Controller
 {
-    use ApiResponse;
-
     /**
      * Create a new authentication controller instance.
      */
@@ -29,10 +27,10 @@ class AuthController extends Controller
     {
         $result = $this->service->login($request->validated());
 
-        return $this->ok([
+        return ApiResponse::success([
             'token' => $result['token'],
             'token_type' => 'Bearer',
-            'user' => new UserResource($result['user']),
+            'user' => (new UserResource($result['user']))->resolve($request),
         ], 'Logged in');
     }
 
@@ -45,7 +43,7 @@ class AuthController extends Controller
         $user = $request->user();
         $this->service->logout($user);
 
-        return $this->ok(message: 'Logged out');
+        return ApiResponse::success(message: 'Logged out');
     }
 
     /**
@@ -56,7 +54,7 @@ class AuthController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        return $this->ok(
+        return ApiResponse::resource(
             new UserResource($this->service->currentUser($user)),
             'Current user retrieved',
         );
