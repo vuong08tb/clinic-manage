@@ -95,6 +95,10 @@ class UserService
             $user,
             'role_id',
             function (User $lockedUser) use ($data): void {
+                $this->assertDoctorRoleChangeAllowed(
+                    $lockedUser,
+                    (int) $data['role_id'],
+                );
                 $lockedUser->update($data);
             },
             (int) $data['role_id'],
@@ -177,7 +181,7 @@ class UserService
 
             $reducesActiveAdmins = $field === 'is_active'
                 || (int) $lockedUser->role_id !== $newRoleId;
-    
+
             if ($reducesActiveAdmins) {
                 $this->assertNotLastActiveAdmin(
                     $lockedUser,
@@ -218,6 +222,28 @@ class UserService
 
         throw ValidationException::withMessages([
             $field => [$message],
+        ]);
+    }
+
+    /**
+     * Prevent a doctor profile from being assigned to a non-doctor user.
+     *
+     * @throws ValidationException
+     */
+    private function assertDoctorRoleChangeAllowed(User $user, int $newRoleId): void
+    {
+        if (! $user->doctor()->exists()) {
+            return;
+        }
+
+        $newRoleName = Role::query()->whereKey($newRoleId)->value('name');
+
+        if ($newRoleName === 'DOCTOR') {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'role_id' => ['A user with a doctor profile must keep the DOCTOR role.'],
         ]);
     }
 }
