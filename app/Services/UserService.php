@@ -177,7 +177,7 @@ class UserService
 
             $reducesActiveAdmins = $field === 'is_active'
                 || (int) $lockedUser->role_id !== $newRoleId;
-
+    
             if ($reducesActiveAdmins) {
                 $this->assertNotLastActiveAdmin(
                     $lockedUser,
