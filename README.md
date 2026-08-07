@@ -80,5 +80,9 @@ Build images and start services (app & db PostgreSQL 16):
 docker compose up -d --build
 Unload Index/php 
 docker compose restart app
+check list migration 
+docker compose exec app php artisan migrate:status
+Check docker 
+docker ps 
 
 ```
