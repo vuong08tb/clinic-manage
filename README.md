@@ -84,5 +84,7 @@ check list migration
 docker compose exec app php artisan migrate:status
 Check docker 
 docker ps 
+Build migrate created
+docker exec clinic_app php artisan migrate
 
 ```

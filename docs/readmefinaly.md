@@ -202,7 +202,9 @@ chúng không thuộc seeder và sẽ mất khi chạy `migrate:fresh --seed`.
 | --: | ------------- | ---------------------------------- | -------------- | ---------- |
 |   2 | DOCTOR        | `updated.receptionist@clinic.test` | `Updated@123`  | Active     |
 |   3 | RECEPTIONIST  | `test.receptionist2@clinic.test`   | `Password@123` | Active     |
-|   4 | CASHIER       | `test.cashier@clinic.test`         | `Password@123` | Active     |
+|   4 | CASHIER       | `test.cashier@clinic.test`         | `Password@123` | 
+Active     |
+|   4 | DOCTOR        | `doctor.an@clinic.test` | `Doctor@123`  | Active     |
 
 > Đây chỉ là credential demo dùng tại local development, không dùng cho môi trường thật.
 
