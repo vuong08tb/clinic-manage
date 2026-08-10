@@ -25,7 +25,7 @@ Route
 
 Triển khai CRUD Patients với các yêu cầu:
 
-- `RECEPTIONIST`: tạo và cập nhật Patient.
+- `RECEPTIONIST`: xem danh sách, xem chi tiết, tạo và cập nhật Patient.
 - `DOCTOR`: chỉ xem danh sách và chi tiết Patient.
 - `CASHIER`: chỉ xem danh sách và chi tiết Patient.
 - `ADMIN`: có toàn bộ quyền, bao gồm xóa Patient.
@@ -142,7 +142,7 @@ destroy            -> DELETE
 | Role | FINDALL | FINDONE | CREATE | UPDATE | DELETE |
 |---|:---:|:---:|:---:|:---:|:---:|
 | ADMIN | ✓ | ✓ | ✓ | ✓ | ✓ |
-| RECEPTIONIST |  |  | ✓ | ✓ |  |
+| RECEPTIONIST | ✓ | ✓ | ✓ | ✓ |  |
 | DOCTOR | ✓ | ✓ |  |  |  |
 | CASHIER | ✓ | ✓ |  |  |  |
 | PHARMACIST |  |  |  |  |  |
@@ -151,8 +151,8 @@ Kết luận RBAC:
 
 - Không cần sửa permission data migration.
 - Không cần sửa `config/rbac.php`.
-- `RbacSeeder` đã được đồng bộ để RECEPTIONIST chỉ còn `PATIENTS.CREATE` và
-  `PATIENTS.UPDATE`.
+- `RbacSeeder` đã được đồng bộ để RECEPTIONIST có `PATIENTS.FINDALL`,
+  `PATIENTS.FINDONE`, `PATIENTS.CREATE` và `PATIENTS.UPDATE`.
 - Không hard-code role trong `PatientController` hoặc `PatientService`.
 
 ### 3.6 Thành phần dùng lại
@@ -610,7 +610,7 @@ Test dùng `RefreshDatabase`, `RoleSeeder`, `RbacSeeder` và Sanctum.
 ### 14.4 RBAC
 
 - ADMIN: toàn bộ CRUD, đặc biệt DELETE thành công.
-- RECEPTIONIST: CREATE/UPDATE thành công; FINDALL/FINDONE/DELETE trả 403.
+- RECEPTIONIST: FINDALL/FINDONE/CREATE/UPDATE thành công; DELETE trả 403.
 - DOCTOR: FINDALL/FINDONE thành công; CREATE/UPDATE/DELETE trả 403.
 - CASHIER: FINDALL/FINDONE thành công; CREATE/UPDATE/DELETE trả 403.
 - PHARMACIST: FINDALL trả 403.
@@ -664,6 +664,6 @@ Tiêu chí hoàn tất:
 - [x] Không hỗ trợ restore/force-delete trong task này.
 - [x] Rollback riêng migration Patient nếu lúc thực thi bảng vẫn rỗng và migration vẫn là
       migration mới nhất; nếu không thì dùng corrective migration.
-- [x] RBAC: ADMIN toàn quyền; RECEPTIONIST chỉ CREATE/UPDATE; DOCTOR/CASHIER read-only;
+- [x] RBAC: ADMIN toàn quyền; RECEPTIONIST đọc/CREATE/UPDATE; DOCTOR/CASHIER read-only;
       DELETE chỉ ADMIN.
 - [x] DELETE là soft delete.

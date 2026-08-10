@@ -106,4 +106,6 @@ docker compose exec app php artisan route:list --path=patients
 docker compose exec app composer dump-autoload --optimize
 docker compose exec app php artisan optimize:clear
 docker compose exec app php artisan route:list
+seed permission missing
+docker compose exec app php artisan db:seed --class=RbacSeeder
 ```

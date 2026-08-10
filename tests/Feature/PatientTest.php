@@ -105,9 +105,9 @@ class PatientTest extends TestCase
     }
 
     /**
-     * Verify a receptionist can create and update but cannot read or delete patients.
+     * Verify a receptionist can read, create, and update but cannot delete patients.
      */
-    public function test_receptionist_can_create_and_update_but_cannot_read_or_delete(): void
+    public function test_receptionist_can_read_create_and_update_but_cannot_delete(): void
     {
         Sanctum::actingAs($this->createUser('RECEPTIONIST'));
 
@@ -123,12 +123,12 @@ class PatientTest extends TestCase
             ->assertJsonPath('data.full_name', 'Updated By Receptionist');
 
         $this->getJson('/api/patients')
-            ->assertForbidden()
-            ->assertJsonPath('message', 'Missing permission: PATIENTS.FINDALL');
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $patient->id);
 
         $this->getJson("/api/patients/{$patient->id}")
-            ->assertForbidden()
-            ->assertJsonPath('message', 'Missing permission: PATIENTS.FINDONE');
+            ->assertOk()
+            ->assertJsonPath('data.id', $patient->id);
 
         $this->deleteJson("/api/patients/{$patient->id}")
             ->assertForbidden()
