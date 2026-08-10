@@ -652,14 +652,14 @@ CRUD bệnh nhân + tìm kiếm một-tham-số `q` gộp nhiều tiêu chí (t�
 *Prompt gợi ý (vibe code):* "CRUD Patients + PATIENTS.* (RECEPTIONIST ghi, CASHIER/DOCTOR đọc, ADMIN xóa). index search theo q (full_name ILIKE, phone, code) + phân trang meta. store tự sinh code. destroy soft delete. Dùng query scope."
 
 **4. Checklist hoàn thành**
-- [ ] CRUD + search `q` hoạt động.
-- [ ] Phân quyền đúng ma trận.
-- [ ] `store` tự sinh `code`; `destroy` soft delete.
+- [x] CRUD + search `q` hoạt động.
+- [x] Phân quyền đúng ma trận.
+- [x] `store` tự sinh `code`; `destroy` soft delete.
 
 **5. Checklist self-test**
-- [ ] `?q=` khớp theo tên/SĐT/mã.
-- [ ] CASHIER `POST /api/patients` → 403.
-- [ ] List có `meta` phân trang.
+- [x] `?q=` khớp theo tên/SĐT/mã.
+- [x] CASHIER `POST /api/patients` → 403.
+- [x] List có `meta` phân trang.
 
 ---
 
