@@ -96,13 +96,14 @@ sudo chown ubuntu:ubuntu \
   app/Models/Patient.php \
   database/factories/PatientFactory.php \
   database/migrations/2026_08_10_020152_create_patients_table.php
-check ubuntu or root 
+check ubuntu or root
 ls -l \
   app/Models/Patient.php \
   database/factories/PatientFactory.php \
   database/migrations/2026_08_10_020152_create_patients_table.php
-
-docker compose exec app php artisan route:list --path=patients
+//cập nhật tạo root
+sudo chown -R $USER:$USER
+docker compose exec app php artisan route:list --path=users
 docker compose exec app composer dump-autoload --optimize
 docker compose exec app php artisan optimize:clear
 docker compose exec app php artisan route:list
