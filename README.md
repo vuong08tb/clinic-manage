@@ -78,13 +78,32 @@ CLIENT
 ```
 Build images and start services (app & db PostgreSQL 16):
 docker compose up -d --build
-Unload Index/php 
+Unload Index/php
 docker compose restart app
-check list migration 
+check list migration
 docker compose exec app php artisan migrate:status
-Check docker 
-docker ps 
+Check docker
+docker ps
 Build migrate created
 docker exec clinic_app php artisan migrate
+docker compose exec app php artisan make:model Patient -mf
+docker compose exec app php artisan migrate
+Build migration user current
+docker compose exec \
+  --user "$(id -u):$(id -g)" \
+  app php artisan make:model Patient --migration --factory
+sudo chown ubuntu:ubuntu \
+  app/Models/Patient.php \
+  database/factories/PatientFactory.php \
+  database/migrations/2026_08_10_020152_create_patients_table.php
+check ubuntu or root 
+ls -l \
+  app/Models/Patient.php \
+  database/factories/PatientFactory.php \
+  database/migrations/2026_08_10_020152_create_patients_table.php
 
+docker compose exec app php artisan route:list --path=patients
+docker compose exec app composer dump-autoload --optimize
+docker compose exec app php artisan optimize:clear
+docker compose exec app php artisan route:list
 ```
