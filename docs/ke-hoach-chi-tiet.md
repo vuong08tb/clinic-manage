@@ -574,14 +574,14 @@ Bác sĩ = một user (role DOCTOR) + một hồ sơ `doctors` quan hệ **1-1**
 - **`license_number` UNIQUE:** đề ghi "khuyến nghị UNIQUE" (không bắt buộc). Cần chốt có đặt UNIQUE hay không — ảnh hưởng migration và thông báo lỗi khi trùng.
 
 **4. Checklist hoàn thành**
-- [ ] `doctors.user_id` UNIQUE FK.
-- [ ] Chặn user sai role / đã có hồ sơ → 422.
+- [x] `doctors.user_id` UNIQUE FK.
+- [x] Chặn user sai role / đã có hồ sơ → 422.
 - [ ] Filter theo `specialty_id`.
 
 **5. Checklist self-test**
-- [ ] Tạo doctor cho user role RECEPTIONIST → 422.
-- [ ] Tạo doctor thứ 2 cho cùng user → 422.
-- [ ] `?specialty_id=` lọc đúng.
+- [x] Tạo doctor cho user role RECEPTIONIST → 422.
+- [x] Tạo doctor thứ 2 cho cùng user → 422.
+- [x] `?specialty_id=` lọc đúng.
 
 ---
 

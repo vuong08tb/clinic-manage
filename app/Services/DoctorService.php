@@ -48,7 +48,7 @@ class DoctorService
     }
 
     /**
-     * Create a doctor profile after verifying the selected user's role.
+     * Create a doctor profile after verifying the selected user's eligibility.
      *
      * @param  array<string, mixed>  $data
      */
@@ -84,7 +84,7 @@ class DoctorService
                 ->findOrFail($doctor->getKey());
             $userId = (int) ($data['user_id'] ?? $lockedDoctor->user_id);
 
-            $this->assertDoctorUser($userId);
+            $this->assertDoctorUser($userId, (int) $lockedDoctor->getKey());
             $lockedDoctor->update($data);
 
             return $lockedDoctor->refresh()->load(['user', 'specialty']);
@@ -100,11 +100,11 @@ class DoctorService
     }
 
     /**
-     * Reject users that are not assigned to the DOCTOR role.
+     * Reject ineligible users and users that already own a doctor profile.
      *
      * @throws ValidationException
      */
-    private function assertDoctorUser(int $userId): void
+    private function assertDoctorUser(int $userId, ?int $ignoredDoctorId = null): void
     {
         $user = User::query()
             ->with('role')
@@ -112,7 +112,21 @@ class DoctorService
             ->findOrFail($userId);
 
         if ($user->role->name === 'DOCTOR') {
-            return;
+            $existingDoctor = Doctor::query()
+                ->where('user_id', $userId)
+                ->when(
+                    $ignoredDoctorId !== null,
+                    fn ($query) => $query->whereKeyNot($ignoredDoctorId),
+                )
+                ->exists();
+
+            if (! $existingDoctor) {
+                return;
+            }
+
+            throw ValidationException::withMessages([
+                'user_id' => ['The selected user already has a doctor profile.'],
+            ]);
         }
 
         $message = 'The selected user must have the DOCTOR role.';

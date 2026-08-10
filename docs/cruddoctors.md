@@ -88,12 +88,18 @@ delete(Doctor $doctor): void
 ```
 
 `create()` và `update()` chạy trong transaction. Khi cần gán `user_id`, service khóa bản ghi
-User để kiểm tra role:
+User để kiểm tra role và kiểm tra User chưa sở hữu Doctor profile khác:
 
 ```php
 if ($user->role?->name !== 'DOCTOR') {
     throw ValidationException::withMessages([
         'user_id' => ['The selected user must have the DOCTOR role.'],
+    ]);
+}
+
+if (Doctor::query()->where('user_id', $user->id)->exists()) {
+    throw ValidationException::withMessages([
+        'user_id' => ['The selected user already has a doctor profile.'],
     ]);
 }
 ```
