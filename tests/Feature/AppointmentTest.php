@@ -303,6 +303,40 @@ class AppointmentTest extends TestCase
     }
 
     /**
+     * Verify appointments cannot be created or rescheduled in the past.
+     */
+    public function test_create_and_update_reject_past_appointment_times(): void
+    {
+        $patient = Patient::factory()->create();
+        $doctor = Doctor::factory()->create();
+        $appointment = Appointment::factory()->create([
+            'patient_id' => $patient->id,
+            'doctor_id' => $doctor->id,
+        ]);
+        $pastTime = now()->subMinute()->toISOString();
+
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        $this->postJson('/api/appointments', $this->appointmentData($patient, $doctor, [
+            'scheduled_at' => $pastTime,
+        ]))->assertUnprocessable()
+            ->assertJsonPath(
+                'errors.scheduled_at.0',
+                'The appointment time must be in the future.',
+            );
+
+        $this->patchJson("/api/appointments/{$appointment->id}", [
+            'scheduled_at' => $pastTime,
+        ])->assertUnprocessable()
+            ->assertJsonPath(
+                'errors.scheduled_at.0',
+                'The appointment time must be in the future.',
+            );
+
+        $this->assertTrue($appointment->refresh()->scheduled_at->isFuture());
+    }
+
+    /**
      * Verify update accepts only scheduling fields and requires a non-empty payload.
      */
     public function test_update_rejects_immutable_fields_and_empty_payloads(): void

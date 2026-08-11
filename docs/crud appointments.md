@@ -6,8 +6,8 @@
 - Nguồn hướng dẫn bắt buộc: `skills/backend.md`.
 - Kiến trúc áp dụng: **Controller + Service**.
 - Phạm vi: CRUD cơ bản cho Appointment theo nội dung đã được review.
-- Kết quả xác minh: `AppointmentTest` pass 11 test/139 assertions; toàn bộ suite pass 74
-  test/547 assertions.
+- Kết quả xác minh: `AppointmentTest` pass 12 test/144 assertions; toàn bộ suite pass 75
+  test/552 assertions.
 
 Luồng xử lý dự kiến:
 
@@ -232,8 +232,8 @@ Quy tắc tạo:
 - `patient_id` phải thuộc Patient chưa bị soft delete; Appointment lịch sử vẫn đọc Patient đã
   soft delete qua quan hệ `withTrashed()`.
 - `reason` có thể không gửi hoặc gửi `null`.
-- Task hiện tại chỉ kiểm tra `scheduled_at` là ngày giờ hợp lệ; chưa áp dụng rule bắt buộc phải
-  ở tương lai vì yêu cầu chưa chốt quy tắc đó.
+- `scheduled_at` phải là ngày giờ hợp lệ và ở tương lai; thời điểm hiện tại hoặc quá khứ trả
+  lỗi validation 422.
 - Logic chống trùng lịch bác sĩ nằm ngoài task CRUD này và sẽ được thực hiện ở task riêng.
 
 Response thành công dự kiến:
@@ -630,6 +630,7 @@ database/migrations/2026_08_11_015448_create_appointments_table.php
 - [x] `store` validate Patient và Doctor tồn tại.
 - [x] `store` chặn Patient đã soft delete nhưng lịch sử vẫn hiển thị Patient cũ.
 - [x] `store` luôn tạo status `scheduled` và cấm client gửi status.
+- [x] `store` và `update` chặn `scheduled_at` hiện tại hoặc quá khứ.
 - [x] `update` chỉ chạy khi status hiện tại là `scheduled`.
 - [x] `update` chỉ nhận `scheduled_at` và `reason`.
 - [x] `index` lọc được theo `doctor_id`, `patient_id`, `status`, `date`.

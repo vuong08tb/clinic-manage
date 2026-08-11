@@ -29,7 +29,7 @@ class UpdateAppointmentRequest extends FormRequest
             'patient_id' => ['prohibited'],
             'doctor_id' => ['prohibited'],
             'status' => ['prohibited'],
-            'scheduled_at' => ['sometimes', 'required', 'date'],
+            'scheduled_at' => ['sometimes', 'required', 'date', 'after:now'],
             'reason' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
@@ -64,6 +64,7 @@ class UpdateAppointmentRequest extends FormRequest
             'patient_id.prohibited' => 'The appointment patient cannot be changed.',
             'doctor_id.prohibited' => 'The appointment doctor cannot be changed.',
             'status.prohibited' => 'Use the appointment status endpoint to change status.',
+            'scheduled_at.after' => 'The appointment time must be in the future.',
             'reason.max' => 'The reason may not be greater than 255 characters.',
         ];
     }

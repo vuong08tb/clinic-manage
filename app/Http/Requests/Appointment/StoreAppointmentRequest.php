@@ -32,7 +32,7 @@ class StoreAppointmentRequest extends FormRequest
                 Rule::exists('patients', 'id')->whereNull('deleted_at'),
             ],
             'doctor_id' => ['required', 'integer', 'exists:doctors,id'],
-            'scheduled_at' => ['required', 'date'],
+            'scheduled_at' => ['required', 'date', 'after:now'],
             'status' => ['prohibited'],
             'reason' => ['nullable', 'string', 'max:255'],
         ];
@@ -48,6 +48,7 @@ class StoreAppointmentRequest extends FormRequest
         return [
             'patient_id.exists' => 'The selected patient does not exist.',
             'doctor_id.exists' => 'The selected doctor does not exist.',
+            'scheduled_at.after' => 'The appointment time must be in the future.',
             'status.prohibited' => 'The appointment status is assigned automatically.',
             'reason.max' => 'The reason may not be greater than 255 characters.',
         ];
