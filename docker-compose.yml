@@ -1,0 +1,38 @@
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: clinic_app
+        restart: unless-stopped
+        working_dir: /var/www
+        ports:
+            - "8000:8000"
+        volumes:
+            - .:/var/www
+            - /var/www/vendor
+        depends_on:
+            db:
+                condition: service_healthy
+        command: php artisan serve --host=0.0.0.0 --port=8000
+
+    db:
+        image: postgres:16
+        container_name: clinic_db
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: clinic_app
+            POSTGRES_USER: clinic
+            POSTGRES_PASSWORD: secret
+        ports:
+            - "5433:5432"
+        volumes:
+            - clinic_postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U clinic -d clinic"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+
+volumes:
+    clinic_postgres_data:
