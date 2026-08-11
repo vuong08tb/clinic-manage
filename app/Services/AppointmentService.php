@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Appointment;
+use App\Models\Doctor;
+use Carbon\CarbonImmutable;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -12,6 +14,11 @@ use Illuminate\Validation\ValidationException;
  */
 class AppointmentService
 {
+    /**
+     * Define the fixed duration occupied by every appointment slot.
+     */
+    private const APPOINTMENT_DURATION_MINUTES = 30;
+
     /**
      * Define valid transitions for each appointment lifecycle status.
      *
@@ -68,12 +75,21 @@ class AppointmentService
      */
     public function create(array $data): Appointment
     {
-        $appointment = Appointment::query()->create([
-            ...$data,
-            'status' => Appointment::STATUS_SCHEDULED,
-        ]);
+        return DB::transaction(function () use ($data): Appointment {
+            Doctor::query()
+                ->whereKey($data['doctor_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        return $appointment->load(['patient', 'doctor.user']);
+            $this->assertDoctorIsAvailable((int) $data['doctor_id'], $data['scheduled_at']);
+
+            $appointment = Appointment::query()->create([
+                ...$data,
+                'status' => Appointment::STATUS_SCHEDULED,
+            ]);
+
+            return $appointment->load(['patient', 'doctor.user']);
+        });
     }
 
     /**
@@ -102,10 +118,53 @@ class AppointmentService
                 ]);
             }
 
+            if (array_key_exists('scheduled_at', $data)) {
+                Doctor::query()
+                    ->whereKey($lockedAppointment->doctor_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $this->assertDoctorIsAvailable(
+                    (int) $lockedAppointment->doctor_id,
+                    $data['scheduled_at'],
+                    (int) $lockedAppointment->getKey(),
+                );
+            }
+
             $lockedAppointment->update($data);
 
             return $lockedAppointment->refresh()->load(['patient', 'doctor.user']);
         });
+    }
+
+    /**
+     * Ensure the doctor has no other active appointment overlapping the requested 30-minute slot.
+     */
+    private function assertDoctorIsAvailable(
+        int $doctorId,
+        string $scheduledAt,
+        ?int $ignoredAppointmentId = null,
+    ): void {
+        $requestedStart = CarbonImmutable::parse($scheduledAt);
+        $earliestOverlappingStart = $requestedStart->subMinutes(self::APPOINTMENT_DURATION_MINUTES);
+        $latestOverlappingStart = $requestedStart->addMinutes(self::APPOINTMENT_DURATION_MINUTES);
+
+        $hasConflict = Appointment::query()
+            ->where('doctor_id', $doctorId)
+            ->where('status', '!=', Appointment::STATUS_CANCELLED)
+            ->when(
+                $ignoredAppointmentId !== null,
+                fn ($query) => $query->whereKeyNot($ignoredAppointmentId),
+            )
+            ->where('scheduled_at', '>', $earliestOverlappingStart)
+            ->where('scheduled_at', '<', $latestOverlappingStart)
+            ->exists();
+
+        if ($hasConflict) {
+            throw ValidationException::withMessages([
+                'scheduled_at' => ['The doctor already has an appointment overlapping this 30-minute time slot.'],
+            ]);
+        }
     }
 
     /**

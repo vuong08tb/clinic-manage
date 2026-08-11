@@ -7,6 +7,7 @@
 1. [Environment](#1-environment)
 2. [Architecture](#2-architecture)
 3. [Running the Application with Docker](#3-running-the-application-with-docker)
+4. [Appointment Scheduling Rules](#4-appointment-scheduling-rules)
 
 ---
 
@@ -110,3 +111,10 @@ docker compose exec app php artisan route:list
 seed permission missing
 docker compose exec app php artisan db:seed --class=RbacSeeder
 ```
+
+## 4. Appointment Scheduling Rules
+
+- Every appointment occupies a fixed 30-minute slot starting at `scheduled_at`.
+- The occupied interval is `[scheduled_at, scheduled_at + 30 minutes)`.
+- A doctor cannot have overlapping appointments unless the existing appointment is `cancelled`.
+- Adjacent slots are allowed — e.g. a 09:00 appointment does not conflict with a 09:30 appointment.
