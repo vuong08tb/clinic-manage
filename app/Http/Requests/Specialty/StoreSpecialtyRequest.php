@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Specialty;
 
+use App\Constants\SpecialtyMessage;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -38,8 +39,8 @@ class StoreSpecialtyRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.unique' => 'The specialty name has already been taken.',
-            'description.max' => 'The description may not be greater than 2000 characters.',
+            'name.unique' => SpecialtyMessage::NAME_ALREADY_TAKEN,
+            'description.max' => SpecialtyMessage::DESCRIPTION_TOO_LONG,
         ];
     }
 }

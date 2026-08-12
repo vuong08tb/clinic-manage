@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Doctor;
 
+use App\Constants\DoctorMessage;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -40,8 +41,8 @@ class ListDoctorsRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'specialty_id.exists' => 'The selected specialty does not exist.',
-            'per_page.max' => 'The page size may not be greater than 100.',
+            'specialty_id.exists' => DoctorMessage::SELECTED_SPECIALTY_NOT_FOUND,
+            'per_page.max' => DoctorMessage::PAGE_SIZE_TOO_LARGE,
         ];
     }
 }

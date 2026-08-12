@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\User;
 
+use App\Constants\UserMessage;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -41,9 +42,9 @@ class ListUsersRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'role_id.exists' => 'The selected role does not exist.',
-            'is_active.boolean' => 'The active status must be true or false.',
-            'per_page.max' => 'The page size may not be greater than 100.',
+            'role_id.exists' => UserMessage::SELECTED_ROLE_NOT_FOUND,
+            'is_active.boolean' => UserMessage::ACTIVE_STATUS_MUST_BE_BOOLEAN,
+            'per_page.max' => UserMessage::PAGE_SIZE_TOO_LARGE,
         ];
     }
 }
