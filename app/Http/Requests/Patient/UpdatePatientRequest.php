@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Patient;
 
+use App\Constants\PatientMessage;
 use App\Models\Patient;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -62,7 +63,7 @@ class UpdatePatientRequest extends FormRequest
                 ])) {
                     $validator->errors()->add(
                         'patient',
-                        'At least one patient field must be provided.',
+                        PatientMessage::UPDATE_FIELD_REQUIRED,
                     );
                 }
             },
@@ -77,11 +78,11 @@ class UpdatePatientRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'code.prohibited' => 'The patient code cannot be changed.',
-            'gender.in' => 'The gender must be male, female, or other.',
-            'date_of_birth.before_or_equal' => 'The date of birth may not be in the future.',
-            'email.unique' => 'The email has already been taken.',
-            'address.max' => 'The address may not be greater than 255 characters.',
+            'code.prohibited' => PatientMessage::CODE_CANNOT_BE_CHANGED,
+            'gender.in' => PatientMessage::INVALID_GENDER,
+            'date_of_birth.before_or_equal' => PatientMessage::DATE_OF_BIRTH_IN_FUTURE,
+            'email.unique' => PatientMessage::EMAIL_ALREADY_TAKEN,
+            'address.max' => PatientMessage::ADDRESS_TOO_LONG,
         ];
     }
 }

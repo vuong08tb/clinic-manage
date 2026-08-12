@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Patient;
 
+use App\Constants\PatientMessage;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -39,7 +40,7 @@ class ListPatientsRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'per_page.max' => 'The page size may not be greater than 100.',
+            'per_page.max' => PatientMessage::PAGE_SIZE_TOO_LARGE,
         ];
     }
 }
