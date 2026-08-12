@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Constants\DoctorMessage;
 use App\Models\Doctor;
 use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -125,14 +126,12 @@ class DoctorService
             }
 
             throw ValidationException::withMessages([
-                'user_id' => ['The selected user already has a doctor profile.'],
+                'user_id' => [DoctorMessage::USER_ALREADY_HAS_PROFILE],
             ]);
         }
 
-        $message = 'The selected user must have the DOCTOR role.';
-
         throw ValidationException::withMessages([
-            'user_id' => [$message],
+            'user_id' => [DoctorMessage::USER_MUST_HAVE_DOCTOR_ROLE],
         ]);
     }
 }

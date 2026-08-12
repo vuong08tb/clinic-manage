@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Doctor;
 
+use App\Constants\DoctorMessage;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -40,11 +41,11 @@ class StoreDoctorRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'user_id.exists' => 'The selected user does not exist.',
-            'user_id.unique' => 'The selected user already has a doctor profile.',
-            'specialty_id.exists' => 'The selected specialty does not exist.',
-            'license_number.unique' => 'The license number has already been taken.',
-            'bio.max' => 'The bio may not be greater than 5000 characters.',
+            'user_id.exists' => DoctorMessage::SELECTED_USER_NOT_FOUND,
+            'user_id.unique' => DoctorMessage::USER_ALREADY_HAS_PROFILE,
+            'specialty_id.exists' => DoctorMessage::SELECTED_SPECIALTY_NOT_FOUND,
+            'license_number.unique' => DoctorMessage::LICENSE_NUMBER_ALREADY_TAKEN,
+            'bio.max' => DoctorMessage::BIO_TOO_LONG,
         ];
     }
 }
