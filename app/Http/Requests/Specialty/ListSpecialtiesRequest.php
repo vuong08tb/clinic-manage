@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Specialty;
 
+use App\Constants\SpecialtyMessage;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -39,7 +40,7 @@ class ListSpecialtiesRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'per_page.max' => 'The page size may not be greater than 100.',
+            'per_page.max' => SpecialtyMessage::PAGE_SIZE_TOO_LARGE,
         ];
     }
 }
