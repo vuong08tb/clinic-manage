@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Constants\AppointmentMessage;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use Carbon\CarbonImmutable;
@@ -114,7 +115,7 @@ class AppointmentService
 
             if ($lockedAppointment->status !== Appointment::STATUS_SCHEDULED) {
                 throw ValidationException::withMessages([
-                    'appointment' => ['Only scheduled appointments may be updated.'],
+                    'appointment' => [AppointmentMessage::ONLY_SCHEDULED_CAN_BE_UPDATED],
                 ]);
             }
 
@@ -162,7 +163,7 @@ class AppointmentService
 
         if ($hasConflict) {
             throw ValidationException::withMessages([
-                'scheduled_at' => ['The doctor already has an appointment overlapping this 30-minute time slot.'],
+                'scheduled_at' => [AppointmentMessage::DOCTOR_SCHEDULE_CONFLICT],
             ]);
         }
     }
@@ -181,7 +182,7 @@ class AppointmentService
             if (! in_array($status, $allowedStatuses, true)) {
                 throw ValidationException::withMessages([
                     'status' => [sprintf(
-                        'The appointment status cannot transition from %s to %s.',
+                        AppointmentMessage::INVALID_STATUS_TRANSITION,
                         $lockedAppointment->status,
                         $status,
                     )],
