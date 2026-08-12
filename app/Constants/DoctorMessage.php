@@ -32,4 +32,6 @@ final class DoctorMessage
     public const UPDATE_FIELD_REQUIRED = 'At least one doctor field must be provided.';
 
     public const USER_MUST_HAVE_DOCTOR_ROLE = 'The selected user must have the DOCTOR role.';
+
+    public const USER_WITH_PROFILE_MUST_KEEP_DOCTOR_ROLE = 'A user with a doctor profile must keep the DOCTOR role.';
 }

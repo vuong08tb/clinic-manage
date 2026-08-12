@@ -1,5 +1,6 @@
 <?php
 
+use App\Constants\ExceptionMessage;
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Responses\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -47,7 +48,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return ApiResponse::error(
                 $exception->getMessage(),
                 $exception->errors(),
-                422,
+                HttpResponse::HTTP_UNPROCESSABLE_ENTITY,
             );
         });
 
@@ -57,7 +58,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            return ApiResponse::error($exception->getMessage(), status: 401);
+            return ApiResponse::error(
+                $exception->getMessage(),
+                status: HttpResponse::HTTP_UNAUTHORIZED,
+            );
         });
 
         // Return one forbidden envelope for policy and permission middleware failures.
@@ -66,7 +70,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            return ApiResponse::error($exception->getMessage(), status: 403);
+            return ApiResponse::error(
+                $exception->getMessage(),
+                status: HttpResponse::HTTP_FORBIDDEN,
+            );
         });
 
         // Hide model identifiers and framework details from not-found responses.
@@ -75,7 +82,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            return ApiResponse::error('Resource not found.', status: 404);
+            return ApiResponse::error(
+                ExceptionMessage::RESOURCE_NOT_FOUND,
+                status: HttpResponse::HTTP_NOT_FOUND,
+            );
         });
 
         $exceptions->render(function (MethodNotAllowedHttpException $exception, Request $request) {
@@ -83,7 +93,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            return ApiResponse::error('Method not allowed.', status: 405);
+            return ApiResponse::error(
+                ExceptionMessage::METHOD_NOT_ALLOWED,
+                status: HttpResponse::HTTP_METHOD_NOT_ALLOWED,
+            );
         });
 
         // Normalize any remaining HTTP exception without changing its status code.
@@ -94,7 +107,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             $status = $exception->getStatusCode();
             $message = $exception->getMessage()
-                ?: (HttpResponse::$statusTexts[$status] ?? 'Request failed.');
+                ?: (HttpResponse::$statusTexts[$status] ?? ExceptionMessage::REQUEST_FAILED);
 
             return ApiResponse::error($message, status: $status);
         });
@@ -107,8 +120,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
             $message = config('app.debug')
                 ? $exception->getMessage()
-                : 'Server Error';
+                : ExceptionMessage::SERVER_ERROR;
 
-            return ApiResponse::error($message ?: 'Server Error', status: 500);
+            return ApiResponse::error(
+                $message ?: ExceptionMessage::SERVER_ERROR,
+                status: HttpResponse::HTTP_INTERNAL_SERVER_ERROR,
+            );
         });
     })->create();

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\User;
 
+use App\Constants\UserMessage;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -37,8 +38,8 @@ class UpdateUserStatusRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'is_active.required' => 'The active status is required.',
-            'is_active.boolean' => 'The active status must be true or false.',
+            'is_active.required' => UserMessage::ACTIVE_STATUS_REQUIRED,
+            'is_active.boolean' => UserMessage::ACTIVE_STATUS_MUST_BE_BOOLEAN,
         ];
     }
 }
