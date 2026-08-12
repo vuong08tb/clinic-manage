@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Specialty;
 
+use App\Constants\SpecialtyMessage;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -48,7 +49,7 @@ class UpdateSpecialtyRequest extends FormRequest
                 if (! $this->hasAny(['name', 'description'])) {
                     $validator->errors()->add(
                         'specialty',
-                        'At least one specialty field must be provided.',
+                        SpecialtyMessage::UPDATE_FIELD_REQUIRED,
                     );
                 }
             },
@@ -63,8 +64,8 @@ class UpdateSpecialtyRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.unique' => 'The specialty name has already been taken.',
-            'description.max' => 'The description may not be greater than 2000 characters.',
+            'name.unique' => SpecialtyMessage::NAME_ALREADY_TAKEN,
+            'description.max' => SpecialtyMessage::DESCRIPTION_TOO_LONG,
         ];
     }
 }
