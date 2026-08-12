@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Constants\UserMessage;
 use App\Models\Role;
 use App\Models\User;
 use Closure;
@@ -161,7 +162,7 @@ class UserService
                 ->value('id');
 
             if ($adminRoleId === null) {
-                throw new LogicException('The ADMIN role is not configured.');
+                throw new LogicException(UserMessage::ADMIN_ROLE_NOT_CONFIGURED);
             }
 
             $activeAdminIds = User::query()
@@ -177,7 +178,7 @@ class UserService
 
             $reducesActiveAdmins = $field === 'is_active'
                 || (int) $lockedUser->role_id !== $newRoleId;
-    
+
             if ($reducesActiveAdmins) {
                 $this->assertNotLastActiveAdmin(
                     $lockedUser,
@@ -213,8 +214,8 @@ class UserService
         }
 
         $message = $field === 'role_id'
-            ? 'The last active administrator cannot be assigned another role.'
-            : 'The last active administrator cannot be deactivated.';
+            ? UserMessage::LAST_ACTIVE_ADMIN_ROLE_CHANGE
+            : UserMessage::LAST_ACTIVE_ADMIN_DEACTIVATION;
 
         throw ValidationException::withMessages([
             $field => [$message],
