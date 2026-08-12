@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Constants\UserMessage;
 use App\Http\Requests\User\ListUsersRequest;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
@@ -11,6 +12,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\User;
 use App\Services\UserService;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Expose administrator-only user management endpoints.
@@ -31,7 +33,8 @@ class UserController extends Controller
 
         return ApiResponse::paginated(
             UserResource::collection($users),
-            'Users retrieved',
+            UserMessage::LIST_RETRIEVED,
+            Response::HTTP_OK,
         );
     }
 
@@ -44,8 +47,8 @@ class UserController extends Controller
 
         return ApiResponse::resource(
             new UserResource($user),
-            'User created',
-            201,
+            UserMessage::CREATED,
+            Response::HTTP_CREATED,
         );
     }
 
@@ -56,7 +59,8 @@ class UserController extends Controller
     {
         return ApiResponse::resource(
             new UserResource($this->service->load($user)),
-            'User retrieved',
+            UserMessage::RETRIEVED,
+            Response::HTTP_OK,
         );
     }
 
@@ -69,7 +73,8 @@ class UserController extends Controller
 
         return ApiResponse::resource(
             new UserResource($updatedUser),
-            'User updated',
+            UserMessage::UPDATED,
+            Response::HTTP_OK,
         );
     }
 
@@ -82,7 +87,8 @@ class UserController extends Controller
 
         return ApiResponse::resource(
             new UserResource($deactivatedUser),
-            'User deactivated',
+            UserMessage::DEACTIVATED,
+            Response::HTTP_OK,
         );
     }
 
@@ -98,7 +104,8 @@ class UserController extends Controller
 
         return ApiResponse::resource(
             new UserResource($updatedUser),
-            'User status updated',
+            UserMessage::STATUS_UPDATED,
+            Response::HTTP_OK,
         );
     }
 }

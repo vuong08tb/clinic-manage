@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Constants\SpecialtyMessage;
 use App\Http\Requests\Specialty\ListSpecialtiesRequest;
 use App\Http\Requests\Specialty\StoreSpecialtyRequest;
 use App\Http\Requests\Specialty\UpdateSpecialtyRequest;
@@ -10,6 +11,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\Specialty;
 use App\Services\SpecialtyService;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Expose permission-protected specialty catalog endpoints.
@@ -30,7 +32,8 @@ class SpecialtyController extends Controller
 
         return ApiResponse::paginated(
             SpecialtyResource::collection($specialties),
-            'Specialties retrieved',
+            SpecialtyMessage::LIST_RETRIEVED,
+            Response::HTTP_OK,
         );
     }
 
@@ -43,8 +46,8 @@ class SpecialtyController extends Controller
 
         return ApiResponse::resource(
             new SpecialtyResource($specialty),
-            'Specialty created',
-            201,
+            SpecialtyMessage::CREATED,
+            Response::HTTP_CREATED,
         );
     }
 
@@ -55,7 +58,8 @@ class SpecialtyController extends Controller
     {
         return ApiResponse::resource(
             new SpecialtyResource($this->service->load($specialty)),
-            'Specialty retrieved',
+            SpecialtyMessage::RETRIEVED,
+            Response::HTTP_OK,
         );
     }
 
@@ -73,7 +77,8 @@ class SpecialtyController extends Controller
 
         return ApiResponse::resource(
             new SpecialtyResource($updatedSpecialty),
-            'Specialty updated',
+            SpecialtyMessage::UPDATED,
+            Response::HTTP_OK,
         );
     }
 
@@ -84,6 +89,10 @@ class SpecialtyController extends Controller
     {
         $this->service->delete($specialty);
 
-        return ApiResponse::success(null, 'Specialty deleted');
+        return ApiResponse::success(
+            null,
+            SpecialtyMessage::DELETED,
+            Response::HTTP_OK,
+        );
     }
 }
