@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Constants\DoctorMessage;
 use App\Http\Requests\Doctor\ListDoctorsRequest;
 use App\Http\Requests\Doctor\StoreDoctorRequest;
 use App\Http\Requests\Doctor\UpdateDoctorRequest;
@@ -10,6 +11,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\Doctor;
 use App\Services\DoctorService;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Expose permission-protected doctor profile endpoints.
@@ -30,7 +32,8 @@ class DoctorController extends Controller
 
         return ApiResponse::paginated(
             DoctorResource::collection($doctors),
-            'Doctors retrieved',
+            DoctorMessage::LIST_RETRIEVED,
+            Response::HTTP_OK,
         );
     }
 
@@ -43,8 +46,8 @@ class DoctorController extends Controller
 
         return ApiResponse::resource(
             new DoctorResource($doctor),
-            'Doctor created',
-            201,
+            DoctorMessage::CREATED,
+            Response::HTTP_CREATED,
         );
     }
 
@@ -55,7 +58,8 @@ class DoctorController extends Controller
     {
         return ApiResponse::resource(
             new DoctorResource($this->service->load($doctor)),
-            'Doctor retrieved',
+            DoctorMessage::RETRIEVED,
+            Response::HTTP_OK,
         );
     }
 
@@ -73,7 +77,8 @@ class DoctorController extends Controller
 
         return ApiResponse::resource(
             new DoctorResource($updatedDoctor),
-            'Doctor updated',
+            DoctorMessage::UPDATED,
+            Response::HTTP_OK,
         );
     }
 
@@ -84,6 +89,10 @@ class DoctorController extends Controller
     {
         $this->service->delete($doctor);
 
-        return ApiResponse::success(null, 'Doctor deleted');
+        return ApiResponse::success(
+            null,
+            DoctorMessage::DELETED,
+            Response::HTTP_OK,
+        );
     }
 }

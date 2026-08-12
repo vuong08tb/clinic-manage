@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Arr;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Build the standard JSON envelope returned by API endpoints.
@@ -18,7 +19,7 @@ final class ApiResponse
     public static function success(
         mixed $data = null,
         string $message = 'OK',
-        int $status = 200,
+        int $status = Response::HTTP_OK,
     ): JsonResponse {
         return response()->json([
             'success' => true,
@@ -33,7 +34,7 @@ final class ApiResponse
     public static function resource(
         JsonResource $resource,
         string $message = 'OK',
-        int $status = 200,
+        int $status = Response::HTTP_OK,
     ): JsonResponse {
         return self::success($resource->resolve(request()), $message, $status);
     }
@@ -44,7 +45,7 @@ final class ApiResponse
     public static function collection(
         AnonymousResourceCollection $collection,
         string $message = 'OK',
-        int $status = 200,
+        int $status = Response::HTTP_OK,
     ): JsonResponse {
         return self::success($collection->resolve(request()), $message, $status);
     }
@@ -55,7 +56,7 @@ final class ApiResponse
     public static function paginated(
         AnonymousResourceCollection $collection,
         string $message = 'OK',
-        int $status = 200,
+        int $status = Response::HTTP_OK,
     ): JsonResponse {
         $payload = $collection->response(request())->getData(true);
         $meta = Arr::only($payload['meta'] ?? [], [
@@ -83,7 +84,7 @@ final class ApiResponse
     public static function error(
         string $message,
         array $errors = [],
-        int $status = 400,
+        int $status = Response::HTTP_BAD_REQUEST,
     ): JsonResponse {
         return response()->json([
             'success' => false,
