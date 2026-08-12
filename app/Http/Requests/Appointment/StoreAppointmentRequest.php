@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Appointment;
 
+use App\Constants\AppointmentMessage;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -46,11 +47,11 @@ class StoreAppointmentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'patient_id.exists' => 'The selected patient does not exist.',
-            'doctor_id.exists' => 'The selected doctor does not exist.',
-            'scheduled_at.after' => 'The appointment time must be in the future.',
-            'status.prohibited' => 'The appointment status is assigned automatically.',
-            'reason.max' => 'The reason may not be greater than 255 characters.',
+            'patient_id.exists' => AppointmentMessage::SELECTED_PATIENT_NOT_FOUND,
+            'doctor_id.exists' => AppointmentMessage::SELECTED_DOCTOR_NOT_FOUND,
+            'scheduled_at.after' => AppointmentMessage::APPOINTMENT_TIME_MUST_BE_FUTURE,
+            'status.prohibited' => AppointmentMessage::STATUS_ASSIGNED_AUTOMATICALLY,
+            'reason.max' => AppointmentMessage::REASON_TOO_LONG,
         ];
     }
 }

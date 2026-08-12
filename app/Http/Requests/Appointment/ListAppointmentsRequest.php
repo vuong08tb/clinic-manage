@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Appointment;
 
+use App\Constants\AppointmentMessage;
 use App\Models\Appointment;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -45,11 +46,11 @@ class ListAppointmentsRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'doctor_id.exists' => 'The selected doctor does not exist.',
-            'patient_id.exists' => 'The selected patient does not exist.',
-            'status.in' => 'The status must be scheduled, confirmed, cancelled, or completed.',
-            'date.date_format' => 'The date must use the Y-m-d format.',
-            'per_page.max' => 'The page size may not be greater than 100.',
+            'doctor_id.exists' => AppointmentMessage::SELECTED_DOCTOR_NOT_FOUND,
+            'patient_id.exists' => AppointmentMessage::SELECTED_PATIENT_NOT_FOUND,
+            'status.in' => AppointmentMessage::INVALID_STATUS,
+            'date.date_format' => AppointmentMessage::INVALID_DATE_FORMAT,
+            'per_page.max' => AppointmentMessage::PAGE_SIZE_TOO_LARGE,
         ];
     }
 }

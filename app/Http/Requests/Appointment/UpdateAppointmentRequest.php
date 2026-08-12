@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Appointment;
 
+use App\Constants\AppointmentMessage;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -46,7 +47,7 @@ class UpdateAppointmentRequest extends FormRequest
                 if (! $this->hasAny(['scheduled_at', 'reason'])) {
                     $validator->errors()->add(
                         'appointment',
-                        'At least one appointment field must be provided.',
+                        AppointmentMessage::UPDATE_FIELD_REQUIRED,
                     );
                 }
             },
@@ -61,11 +62,11 @@ class UpdateAppointmentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'patient_id.prohibited' => 'The appointment patient cannot be changed.',
-            'doctor_id.prohibited' => 'The appointment doctor cannot be changed.',
-            'status.prohibited' => 'Use the appointment status endpoint to change status.',
-            'scheduled_at.after' => 'The appointment time must be in the future.',
-            'reason.max' => 'The reason may not be greater than 255 characters.',
+            'patient_id.prohibited' => AppointmentMessage::PATIENT_CANNOT_BE_CHANGED,
+            'doctor_id.prohibited' => AppointmentMessage::DOCTOR_CANNOT_BE_CHANGED,
+            'status.prohibited' => AppointmentMessage::USE_STATUS_ENDPOINT,
+            'scheduled_at.after' => AppointmentMessage::APPOINTMENT_TIME_MUST_BE_FUTURE,
+            'reason.max' => AppointmentMessage::REASON_TOO_LONG,
         ];
     }
 }
