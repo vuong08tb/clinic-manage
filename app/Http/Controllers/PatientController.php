@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Constants\PatientMessage;
 use App\Http\Requests\Patient\ListPatientsRequest;
 use App\Http\Requests\Patient\StorePatientRequest;
 use App\Http\Requests\Patient\UpdatePatientRequest;
@@ -10,6 +11,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\Patient;
 use App\Services\PatientService;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Expose permission-protected patient profile endpoints.
@@ -30,7 +32,8 @@ class PatientController extends Controller
 
         return ApiResponse::paginated(
             PatientResource::collection($patients),
-            'Patients retrieved',
+            PatientMessage::LIST_RETRIEVED,
+            Response::HTTP_OK,
         );
     }
 
@@ -43,8 +46,8 @@ class PatientController extends Controller
 
         return ApiResponse::resource(
             new PatientResource($patient),
-            'Patient created',
-            201,
+            PatientMessage::CREATED,
+            Response::HTTP_CREATED,
         );
     }
 
@@ -55,7 +58,8 @@ class PatientController extends Controller
     {
         return ApiResponse::resource(
             new PatientResource($this->service->load($patient)),
-            'Patient retrieved',
+            PatientMessage::RETRIEVED,
+            Response::HTTP_OK,
         );
     }
 
@@ -73,7 +77,8 @@ class PatientController extends Controller
 
         return ApiResponse::resource(
             new PatientResource($updatedPatient),
-            'Patient updated',
+            PatientMessage::UPDATED,
+            Response::HTTP_OK,
         );
     }
 
@@ -84,6 +89,10 @@ class PatientController extends Controller
     {
         $this->service->delete($patient);
 
-        return ApiResponse::success(null, 'Patient deleted');
+        return ApiResponse::success(
+            null,
+            PatientMessage::DELETED,
+            Response::HTTP_OK,
+        );
     }
 }

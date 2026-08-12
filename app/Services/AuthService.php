@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Constants\AuthMessage;
 use App\Models\User;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\Hash;
@@ -31,7 +32,7 @@ class AuthService
         if ($user === null
             || ! Hash::check($credentials['password'], $user->password)
             || ! $user->is_active) {
-            throw new AuthenticationException('Invalid credentials');
+            throw new AuthenticationException(AuthMessage::INVALID_CREDENTIALS);
         }
 
         return [
