@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\User;
 
+use App\Constants\UserMessage;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -50,7 +51,7 @@ class UpdateUserRequest extends FormRequest
         return [
             function (Validator $validator): void {
                 if (! $this->hasAny(['name', 'email', 'password', 'role_id'])) {
-                    $validator->errors()->add('user', 'At least one user field must be provided.');
+                    $validator->errors()->add('user', UserMessage::UPDATE_FIELD_REQUIRED);
                 }
             },
         ];
@@ -64,10 +65,10 @@ class UpdateUserRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.unique' => 'The email has already been taken.',
-            'password.confirmed' => 'The password confirmation does not match.',
-            'role_id.exists' => 'The selected role does not exist.',
-            'is_active.prohibited' => 'Use the user status endpoint to change the active status.',
+            'email.unique' => UserMessage::EMAIL_ALREADY_TAKEN,
+            'password.confirmed' => UserMessage::PASSWORD_CONFIRMATION_MISMATCH,
+            'role_id.exists' => UserMessage::SELECTED_ROLE_NOT_FOUND,
+            'is_active.prohibited' => UserMessage::USE_STATUS_ENDPOINT,
         ];
     }
 }
