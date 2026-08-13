@@ -7,6 +7,7 @@
 1. [Environment](#1-environment)
 2. [Architecture](#2-architecture)
 3. [Running the Application with Docker](#3-running-the-application-with-docker)
+4. [Appointment Scheduling Rules](#4-appointment-scheduling-rules)
 
 ---
 
@@ -78,4 +79,43 @@ CLIENT
 ```
 Build images and start services (app & db PostgreSQL 16):
 docker compose up -d --build
+Unload Index/php
+docker compose restart app
+check list migration
+docker compose exec app php artisan migrate:status
+Check docker
+docker ps
+Build migrate created
+docker exec clinic_app php artisan migrate
+docker compose exec app php artisan make:model Examination -mf
+docker compose exec app php artisan migrate
+docker compose exec app php artisan migrate:rollback --step=1
+Build migration user current
+docker compose exec \
+  --user "$(id -u):$(id -g)" \
+  app php artisan make:model Patient --migration --factory
+sudo chown ubuntu:ubuntu \
+  app/Models/Patient.php \
+  database/factories/PatientFactory.php \
+  database/migrations/2026_08_10_020152_create_patients_table.php
+check ubuntu or root
+ls -l \
+  app/Models/Appointment.php \
+  database/factories/PatientFactory.php \
+  database/migrations/2026_08_10_020152_create_patients_table.php
+update root
+sudo chown -R $USER:$USER .
+docker compose exec app php artisan route:list --path=appointments
+docker compose exec app composer dump-autoload --optimize
+docker compose exec app php artisan optimize:clear
+docker compose exec app php artisan route:list
+seed permission missing
+docker compose exec app php artisan db:seed --class=RbacSeeder
 ```
+
+## 4. Appointment Scheduling Rules
+
+- Every appointment occupies a fixed 30-minute slot starting at `scheduled_at`.
+- The occupied interval is `[scheduled_at, scheduled_at + 30 minutes)`.
+- A doctor cannot have overlapping appointments unless the existing appointment is `cancelled`.
+- Adjacent slots are allowed — e.g. a 09:00 appointment does not conflict with a 09:30 appointment.
