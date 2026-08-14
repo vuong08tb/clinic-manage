@@ -6,6 +6,7 @@ use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\ExaminationController;
 use App\Http\Controllers\MedicineController;
 use App\Http\Controllers\PatientController;
+use App\Http\Controllers\PrescriptionController;
 use App\Http\Controllers\SpecialtyController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +31,7 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::patch('/medicines/{medicine}/stock', [MedicineController::class, 'adjustStock']);
     Route::apiResource('medicines', MedicineController::class);
     Route::apiResource('patients', PatientController::class);
+    Route::post('/prescriptions', [PrescriptionController::class, 'store']);
     Route::apiResource('specialties', SpecialtyController::class);
     Route::patch('/users/{user}/status', [UserController::class, 'updateStatus']);
     Route::apiResource('users', UserController::class);
