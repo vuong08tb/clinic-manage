@@ -32,6 +32,9 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::apiResource('medicines', MedicineController::class);
     Route::apiResource('patients', PatientController::class);
     Route::post('/prescriptions', [PrescriptionController::class, 'store']);
+    Route::post('/prescriptions/{prescription}/items', [PrescriptionController::class, 'addItem']);
+    Route::match(['put', 'patch'], '/prescriptions/{prescription}/items/{item}', [PrescriptionController::class, 'updateItem']);
+    Route::delete('/prescriptions/{prescription}/items/{item}', [PrescriptionController::class, 'removeItem']);
     Route::apiResource('specialties', SpecialtyController::class);
     Route::patch('/users/{user}/status', [UserController::class, 'updateStatus']);
     Route::apiResource('users', UserController::class);
