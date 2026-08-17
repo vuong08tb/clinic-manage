@@ -105,4 +105,67 @@ class InvoiceService
             ]);
         });
     }
+
+    /**
+     * Update the discount of an unpaid invoice and recompute its total.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function updateDiscount(Invoice $invoice, array $data): Invoice
+    {
+        return DB::transaction(function () use ($invoice, $data): Invoice {
+            $lockedInvoice = Invoice::query()->lockForUpdate()->findOrFail($invoice->getKey());
+
+            $this->assertModifiable($lockedInvoice);
+
+            $discount = (float) $data['discount'];
+            $subtotal = (float) $lockedInvoice->subtotal;
+
+            if ($discount > $subtotal) {
+                throw ValidationException::withMessages([
+                    'discount' => [InvoiceMessage::DISCOUNT_EXCEEDS_SUBTOTAL],
+                ]);
+            }
+
+            $lockedInvoice->update([
+                'discount' => $discount,
+                'total' => $subtotal - $discount,
+            ]);
+
+            return $lockedInvoice->refresh()->load([
+                'examination.patient',
+                'examination.doctor.user',
+                'examination.prescription.items.medicine',
+            ]);
+        });
+    }
+
+    /**
+     * Cancel an unpaid invoice.
+     */
+    public function cancel(Invoice $invoice): Invoice
+    {
+        return DB::transaction(function () use ($invoice): Invoice {
+            $lockedInvoice = Invoice::query()->lockForUpdate()->findOrFail($invoice->getKey());
+
+            $this->assertModifiable($lockedInvoice);
+
+            $lockedInvoice->update(['status' => Invoice::STATUS_CANCELLED]);
+
+            return $lockedInvoice->refresh()->load([
+                'examination.patient',
+                'examination.doctor.user',
+                'examination.prescription.items.medicine',
+            ]);
+        });
+    }
+
+    private function assertModifiable(Invoice $invoice): void
+    {
+        if ($invoice->status !== Invoice::STATUS_UNPAID) {
+            throw ValidationException::withMessages([
+                'invoice' => [InvoiceMessage::INVOICE_NOT_MODIFIABLE],
+            ]);
+        }
+    }
 }
