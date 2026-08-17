@@ -403,6 +403,230 @@ class InvoiceTest extends TestCase
     }
 
     /**
+     * Verify a cashier can update the discount of an unpaid invoice and the total is recomputed.
+     */
+    public function test_cashier_can_update_discount_of_unpaid_invoice(): void
+    {
+        $invoice = Invoice::factory()->create([
+            'subtotal' => 250000,
+            'discount' => 0,
+            'total' => 250000,
+            'status' => Invoice::STATUS_UNPAID,
+        ]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->patchJson("/api/invoices/{$invoice->id}", ['discount' => 50000])
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'message' => 'Invoice updated',
+                'data' => [
+                    'subtotal' => '250000.00',
+                    'discount' => '50000.00',
+                    'total' => '200000.00',
+                ],
+            ]);
+
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoice->id,
+            'discount' => 50000,
+            'total' => 200000,
+        ]);
+    }
+
+    /**
+     * Verify a discount larger than the invoice subtotal is rejected without changing the invoice.
+     */
+    public function test_update_rejects_discount_exceeding_subtotal(): void
+    {
+        $invoice = Invoice::factory()->create([
+            'subtotal' => 100000,
+            'discount' => 0,
+            'total' => 100000,
+            'status' => Invoice::STATUS_UNPAID,
+        ]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->patchJson("/api/invoices/{$invoice->id}", ['discount' => 100001])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.discount.0', 'Discount cannot exceed the invoice subtotal.');
+
+        $this->assertDatabaseHas('invoices', ['id' => $invoice->id, 'discount' => 0, 'total' => 100000]);
+    }
+
+    /**
+     * Verify a negative or missing discount is rejected by validation.
+     */
+    public function test_update_rejects_negative_discount(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->patchJson("/api/invoices/{$invoice->id}", ['discount' => -1])
+            ->assertUnprocessable()
+            ->assertJsonStructure(['errors' => ['discount']]);
+    }
+
+    /**
+     * Verify a prohibited field in the update payload is rejected.
+     */
+    public function test_update_rejects_prohibited_fields(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->patchJson("/api/invoices/{$invoice->id}", [
+            'discount' => 10000,
+            'status' => Invoice::STATUS_PAID,
+        ])->assertUnprocessable()
+            ->assertJsonStructure(['errors' => ['status']]);
+    }
+
+    /**
+     * Verify a non-unpaid invoice cannot have its discount updated.
+     */
+    public function test_update_rejects_non_unpaid_invoice(): void
+    {
+        foreach ([Invoice::STATUS_PAID, Invoice::STATUS_CANCELLED] as $status) {
+            $invoice = Invoice::factory()->create(['status' => $status]);
+
+            Sanctum::actingAs($this->createUser('CASHIER'));
+
+            $this->patchJson("/api/invoices/{$invoice->id}", ['discount' => 1000])
+                ->assertUnprocessable()
+                ->assertJsonPath('errors.invoice.0', 'Invoice can only be modified while unpaid.');
+        }
+    }
+
+    /**
+     * Verify updating a nonexistent invoice returns 404.
+     */
+    public function test_update_missing_invoice_returns_404(): void
+    {
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->patchJson('/api/invoices/999999', ['discount' => 1000])->assertNotFound();
+    }
+
+    /**
+     * Verify roles without INVOICES.UPDATE are forbidden from updating invoices.
+     */
+    public function test_roles_without_permission_cannot_update_invoices(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
+
+        foreach (['DOCTOR', 'RECEPTIONIST', 'PHARMACIST'] as $role) {
+            Sanctum::actingAs($this->createUser($role));
+
+            $this->patchJson("/api/invoices/{$invoice->id}", ['discount' => 1000])
+                ->assertForbidden()
+                ->assertJsonPath('message', 'Missing permission: INVOICES.UPDATE');
+        }
+    }
+
+    /**
+     * Verify unauthenticated update requests are rejected.
+     */
+    public function test_unauthenticated_update_request_is_rejected(): void
+    {
+        $invoice = Invoice::factory()->create();
+
+        $this->patchJson("/api/invoices/{$invoice->id}", ['discount' => 1000])->assertUnauthorized();
+    }
+
+    /**
+     * Verify a cashier can cancel an unpaid invoice.
+     */
+    public function test_cashier_can_cancel_unpaid_invoice(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->patchJson("/api/invoices/{$invoice->id}/status", ['status' => 'cancelled'])
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'message' => 'Invoice status updated',
+                'data' => ['status' => 'cancelled'],
+            ]);
+
+        $this->assertDatabaseHas('invoices', ['id' => $invoice->id, 'status' => Invoice::STATUS_CANCELLED]);
+    }
+
+    /**
+     * Verify a non-unpaid invoice cannot be cancelled again.
+     */
+    public function test_cancel_rejects_non_unpaid_invoice(): void
+    {
+        foreach ([Invoice::STATUS_PAID, Invoice::STATUS_CANCELLED] as $status) {
+            $invoice = Invoice::factory()->create(['status' => $status]);
+
+            Sanctum::actingAs($this->createUser('CASHIER'));
+
+            $this->patchJson("/api/invoices/{$invoice->id}/status", ['status' => 'cancelled'])
+                ->assertUnprocessable()
+                ->assertJsonPath('errors.invoice.0', 'Invoice can only be modified while unpaid.');
+        }
+    }
+
+    /**
+     * Verify a status other than "cancelled" is rejected by validation.
+     */
+    public function test_update_status_rejects_status_other_than_cancelled(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->patchJson("/api/invoices/{$invoice->id}/status", ['status' => 'paid'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.status.0', 'Only cancelling an invoice is supported via this endpoint.');
+
+        $this->assertDatabaseHas('invoices', ['id' => $invoice->id, 'status' => Invoice::STATUS_UNPAID]);
+    }
+
+    /**
+     * Verify cancelling a nonexistent invoice returns 404.
+     */
+    public function test_update_status_missing_invoice_returns_404(): void
+    {
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->patchJson('/api/invoices/999999/status', ['status' => 'cancelled'])->assertNotFound();
+    }
+
+    /**
+     * Verify roles without INVOICES.UPDATESTATUS are forbidden from cancelling invoices.
+     */
+    public function test_roles_without_permission_cannot_cancel_invoices(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
+
+        foreach (['DOCTOR', 'RECEPTIONIST', 'PHARMACIST'] as $role) {
+            Sanctum::actingAs($this->createUser($role));
+
+            $this->patchJson("/api/invoices/{$invoice->id}/status", ['status' => 'cancelled'])
+                ->assertForbidden()
+                ->assertJsonPath('message', 'Missing permission: INVOICES.UPDATESTATUS');
+        }
+    }
+
+    /**
+     * Verify unauthenticated cancel requests are rejected.
+     */
+    public function test_unauthenticated_update_status_request_is_rejected(): void
+    {
+        $invoice = Invoice::factory()->create();
+
+        $this->patchJson("/api/invoices/{$invoice->id}/status", ['status' => 'cancelled'])->assertUnauthorized();
+    }
+
+    /**
      * Create a user assigned to the requested seeded role.
      */
     private function createUser(string $role): User
