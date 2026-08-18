@@ -25,6 +25,16 @@ class PayPalService
                         'value' => number_format($amount, 2, '.', ''),
                     ],
                 ]],
+                // Required for the hosted "checkoutnow" redirect flow: without a return_url
+                // PayPal has nowhere to send the browser back to and the "Continue" step on
+                // the approval page fails with a raw METHOD_NOT_SUPPORTED API error instead
+                // of completing.
+                'application_context' => [
+                    'return_url' => config('app.url'),
+                    'cancel_url' => config('app.url'),
+                    'user_action' => 'PAY_NOW',
+                    'shipping_preference' => 'NO_SHIPPING',
+                ],
             ])
             ->throw()
             ->json();
