@@ -288,3 +288,13 @@ class PaymentTest extends TestCase
 - [ ] PayPal secret an toàn; không lưu số thẻ.
 - [ ] Activity log ghi các action chính.
 - [ ] Feature test (mock PayPal) xanh.
+
+## 12. Comment code 
+
+### Mục tiêu
+
+Sinh comment code theo chuẩn chuyên nghiệp dành cho PHP/Laravel, tuân theo PSR-12 và phong cách của các dự án doanh nghiệp.
+Toàn bộ comment phải sử dụng **tiếng Anh**, ngắn gọn, rõ ràng và mang tính kỹ thuật.
+
+### Phạm vi comment
+Method, Controller, Service, Class, Constructor
