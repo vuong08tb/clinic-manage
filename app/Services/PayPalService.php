@@ -30,6 +30,14 @@ class PayPalService
             ->json();
     }
 
+   
+    public function captureOrder(string $orderId): array
+    {
+        return Http::withToken($this->token())
+            ->post($this->baseUrl()."/v2/checkout/orders/{$orderId}/capture", (object) [])
+            ->json() ?? [];
+    }
+
     /**
      * Obtain an OAuth2 access token using the client credentials grant.
      */

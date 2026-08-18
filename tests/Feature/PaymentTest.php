@@ -249,6 +249,259 @@ class PaymentTest extends TestCase
     }
 
     /**
+     * Fake a successful PayPal OAuth2 token exchange and Order capture.
+     */
+    private function fakePayPalCapture(string $orderId, string $status = 'COMPLETED', string $captureId = 'CAPTURE-1'): void
+    {
+        Http::fake([
+            'api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response([
+                'access_token' => 'FAKE_ACCESS_TOKEN',
+            ], 200),
+            "api-m.sandbox.paypal.com/v2/checkout/orders/{$orderId}/capture" => Http::response([
+                'status' => $status,
+                'purchase_units' => [[
+                    'payments' => [
+                        'captures' => [
+                            ['id' => $captureId, 'status' => $status],
+                        ],
+                    ],
+                ]],
+            ], 201),
+        ]);
+    }
+
+    /**
+     * Verify capturing a payment that fully settles the invoice marks it paid.
+     */
+    public function test_cashier_can_capture_payment_that_fully_settles_invoice(): void
+    {
+        $invoice = Invoice::factory()->create(['total' => 100000, 'status' => Invoice::STATUS_UNPAID]);
+        $payment = Payment::factory()->create([
+            'invoice_id' => $invoice->id,
+            'amount' => 100000,
+            'status' => Payment::STATUS_PENDING,
+            'provider_order_id' => 'ORDER-123',
+        ]);
+        $this->fakePayPalCapture('ORDER-123', 'COMPLETED', 'CAPTURE-1');
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson("/api/payments/{$payment->id}/capture")
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'message' => 'Payment captured',
+                'data' => [
+                    'status' => 'completed',
+                    'provider_capture_id' => 'CAPTURE-1',
+                ],
+            ]);
+
+        // PayPal's capture endpoint requires the body to be a JSON object; an empty PHP array
+        // would encode to `[]` and PayPal rejects it as MALFORMED_REQUEST_JSON.
+        Http::assertSent(fn ($request): bool => str_contains($request->url(), '/capture') && $request->body() === '{}');
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => Payment::STATUS_COMPLETED,
+            'provider_capture_id' => 'CAPTURE-1',
+        ]);
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoice->id,
+            'status' => Invoice::STATUS_PAID,
+        ]);
+    }
+
+    /**
+     * Verify capturing a partial payment completes the payment but leaves the invoice unpaid.
+     */
+    public function test_capturing_partial_payment_leaves_invoice_unpaid(): void
+    {
+        $invoice = Invoice::factory()->create(['total' => 200000, 'status' => Invoice::STATUS_UNPAID]);
+        $payment = Payment::factory()->create([
+            'invoice_id' => $invoice->id,
+            'amount' => 80000,
+            'status' => Payment::STATUS_PENDING,
+            'provider_order_id' => 'ORDER-456',
+        ]);
+        $this->fakePayPalCapture('ORDER-456');
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson("/api/payments/{$payment->id}/capture")->assertOk();
+
+        $this->assertDatabaseHas('payments', ['id' => $payment->id, 'status' => Payment::STATUS_COMPLETED]);
+        $this->assertDatabaseHas('invoices', ['id' => $invoice->id, 'status' => Invoice::STATUS_UNPAID]);
+    }
+
+    /**
+     * Verify a PayPal capture that does not complete marks the payment failed without touching
+     * the invoice.
+     */
+    public function test_capture_marks_payment_failed_when_paypal_does_not_complete_it(): void
+    {
+        $invoice = Invoice::factory()->create(['total' => 100000, 'status' => Invoice::STATUS_UNPAID]);
+        $payment = Payment::factory()->create([
+            'invoice_id' => $invoice->id,
+            'amount' => 100000,
+            'status' => Payment::STATUS_PENDING,
+            'provider_order_id' => 'ORDER-789',
+        ]);
+        $this->fakePayPalCapture('ORDER-789', 'VOIDED');
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson("/api/payments/{$payment->id}/capture")
+            ->assertOk()
+            ->assertJson([
+                'message' => 'Payment capture failed',
+                'data' => ['status' => 'failed'],
+            ]);
+
+        $this->assertDatabaseHas('payments', ['id' => $payment->id, 'status' => Payment::STATUS_FAILED]);
+        $this->assertDatabaseHas('invoices', ['id' => $invoice->id, 'status' => Invoice::STATUS_UNPAID]);
+    }
+
+    /**
+     * Verify capturing a second payment that would push completed total past the invoice total
+     * is rejected before ever calling PayPal.
+     */
+    public function test_capture_rejected_when_it_would_exceed_invoice_total(): void
+    {
+        $invoice = Invoice::factory()->create(['total' => 200000, 'status' => Invoice::STATUS_UNPAID]);
+        Payment::factory()->completed()->create(['invoice_id' => $invoice->id, 'amount' => 150000]);
+        $secondPayment = Payment::factory()->create([
+            'invoice_id' => $invoice->id,
+            'amount' => 100000,
+            'status' => Payment::STATUS_PENDING,
+            'provider_order_id' => 'ORDER-999',
+        ]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson("/api/payments/{$secondPayment->id}/capture")
+            ->assertStatus(422)
+            ->assertJsonPath('errors.payment.0', 'Capturing this payment would exceed the invoice total.');
+
+        $this->assertDatabaseHas('payments', ['id' => $secondPayment->id, 'status' => Payment::STATUS_PENDING]);
+        $this->assertDatabaseHas('invoices', ['id' => $invoice->id, 'status' => Invoice::STATUS_UNPAID]);
+        Http::assertNothingSent();
+    }
+
+    /**
+     * Verify a payment that is not pending cannot be captured again.
+     */
+    public function test_capture_rejected_when_payment_is_not_pending(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_PAID]);
+        $payment = Payment::factory()->completed()->create(['invoice_id' => $invoice->id, 'amount' => 100000]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson("/api/payments/{$payment->id}/capture")
+            ->assertStatus(422)
+            ->assertJsonPath('errors.payment.0', 'Only pending payments can be captured.');
+
+        Http::assertNothingSent();
+    }
+
+    /**
+     * Verify capturing a missing payment returns 404.
+     */
+    public function test_capture_for_missing_payment_returns_not_found(): void
+    {
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson('/api/payments/999999/capture')->assertNotFound();
+    }
+
+    /**
+     * Verify roles without PAYMENTS.CAPTURE are forbidden from capturing payments.
+     */
+    public function test_roles_without_permission_cannot_capture_payments(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
+        $payment = Payment::factory()->create(['invoice_id' => $invoice->id, 'status' => Payment::STATUS_PENDING]);
+
+        foreach (['DOCTOR', 'RECEPTIONIST', 'PHARMACIST'] as $role) {
+            Sanctum::actingAs($this->createUser($role));
+
+            $this->postJson("/api/payments/{$payment->id}/capture")
+                ->assertForbidden()
+                ->assertJsonPath('message', 'Missing permission: PAYMENTS.CAPTURE');
+        }
+    }
+
+    /**
+     * Verify unauthenticated capture requests are rejected.
+     */
+    public function test_unauthenticated_capture_request_is_rejected(): void
+    {
+        $payment = Payment::factory()->create(['status' => Payment::STATUS_PENDING]);
+
+        $this->postJson("/api/payments/{$payment->id}/capture")->assertUnauthorized();
+    }
+
+    /**
+     * Verify a PayPal infrastructure failure during capture bubbles up as a server error and
+     * leaves the payment untouched.
+     */
+    public function test_paypal_failure_during_capture_returns_server_error_and_leaves_payment_pending(): void
+    {
+        $invoice = Invoice::factory()->create(['total' => 100000, 'status' => Invoice::STATUS_UNPAID]);
+        $payment = Payment::factory()->create([
+            'invoice_id' => $invoice->id,
+            'amount' => 100000,
+            'status' => Payment::STATUS_PENDING,
+            'provider_order_id' => 'ORDER-500',
+        ]);
+
+        Http::fake([
+            'api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response([], 500),
+        ]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson("/api/payments/{$payment->id}/capture")->assertStatus(500);
+
+        $this->assertDatabaseHas('payments', ['id' => $payment->id, 'status' => Payment::STATUS_PENDING]);
+    }
+
+    /**
+     * Verify method=visa uses the identical PayPal Order/Capture flow as method=paypal — the
+     * backend does not branch on payment method, only records it.
+     */
+    public function test_visa_method_uses_the_same_paypal_order_and_capture_flow(): void
+    {
+        $invoice = Invoice::factory()->create(['total' => 100000, 'status' => Invoice::STATUS_UNPAID]);
+        $this->fakePayPalSuccess('ORDER-VISA-1');
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $paymentId = $this->postJson("/api/invoices/{$invoice->id}/payments", [
+            'amount' => 100000,
+            'method' => 'visa',
+        ])->assertCreated()
+            ->assertJsonPath('data.method', 'visa')
+            ->assertJsonPath('data.provider', 'paypal')
+            ->json('data.id');
+
+        $this->fakePayPalCapture('ORDER-VISA-1');
+
+        $this->postJson("/api/payments/{$paymentId}/capture")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'completed')
+            ->assertJsonPath('data.method', 'visa');
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $paymentId,
+            'method' => 'visa',
+            'status' => Payment::STATUS_COMPLETED,
+        ]);
+        $this->assertDatabaseHas('invoices', ['id' => $invoice->id, 'status' => Invoice::STATUS_PAID]);
+    }
+
+    /**
      * Create a user assigned to the requested seeded role.
      */
     private function createUser(string $role): User

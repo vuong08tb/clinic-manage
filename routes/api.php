@@ -34,6 +34,7 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::apiResource('invoices', InvoiceController::class)
         ->only(['index', 'store', 'show', 'update']);
     Route::post('/invoices/{invoice}/payments', [PaymentController::class, 'store']);
+    Route::post('/payments/{payment}/capture', [PaymentController::class, 'capture']);
     Route::patch('/medicines/{medicine}/stock', [MedicineController::class, 'adjustStock']);
     Route::apiResource('medicines', MedicineController::class);
     Route::apiResource('patients', PatientController::class);
