@@ -7,6 +7,7 @@ use App\Http\Controllers\ExaminationController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MedicineController;
 use App\Http\Controllers\PatientController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PrescriptionController;
 use App\Http\Controllers\SpecialtyController;
 use App\Http\Controllers\UserController;
@@ -32,6 +33,7 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::patch('/invoices/{invoice}/status', [InvoiceController::class, 'updateStatus']);
     Route::apiResource('invoices', InvoiceController::class)
         ->only(['index', 'store', 'show', 'update']);
+    Route::post('/invoices/{invoice}/payments', [PaymentController::class, 'store']);
     Route::patch('/medicines/{medicine}/stock', [MedicineController::class, 'adjustStock']);
     Route::apiResource('medicines', MedicineController::class);
     Route::apiResource('patients', PatientController::class);
