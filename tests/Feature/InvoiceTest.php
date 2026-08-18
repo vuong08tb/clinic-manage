@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Examination;
 use App\Models\Invoice;
 use App\Models\Medicine;
+use App\Models\Payment;
 use App\Models\Prescription;
 use App\Models\PrescriptionItem;
 use App\Models\Role;
@@ -503,6 +504,24 @@ class InvoiceTest extends TestCase
     }
 
     /**
+     * Verify an invoice with a completed payment cannot be updated even while still unpaid
+     * (partial payment).
+     */
+    public function test_update_rejects_invoice_with_completed_payment(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID, 'total' => 200000]);
+        Payment::factory()->completed()->create(['invoice_id' => $invoice->id, 'amount' => 50000]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->patchJson("/api/invoices/{$invoice->id}", ['discount' => 1000])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.invoice.0', 'Invoice can only be modified while unpaid.');
+
+        $this->assertDatabaseHas('invoices', ['id' => $invoice->id, 'discount' => 0]);
+    }
+
+    /**
      * Verify updating a nonexistent invoice returns 404.
      */
     public function test_update_missing_invoice_returns_404(): void
@@ -572,6 +591,24 @@ class InvoiceTest extends TestCase
                 ->assertUnprocessable()
                 ->assertJsonPath('errors.invoice.0', 'Invoice can only be modified while unpaid.');
         }
+    }
+
+    /**
+     * Verify an invoice with a completed payment cannot be cancelled even while still unpaid
+     * (partial payment).
+     */
+    public function test_cancel_rejects_invoice_with_completed_payment(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID, 'total' => 200000]);
+        Payment::factory()->completed()->create(['invoice_id' => $invoice->id, 'amount' => 50000]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->patchJson("/api/invoices/{$invoice->id}/status", ['status' => 'cancelled'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.invoice.0', 'Invoice can only be modified while unpaid.');
+
+        $this->assertDatabaseHas('invoices', ['id' => $invoice->id, 'status' => Invoice::STATUS_UNPAID]);
     }
 
     /**

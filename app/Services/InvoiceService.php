@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Constants\InvoiceMessage;
 use App\Models\Examination;
 use App\Models\Invoice;
+use App\Models\Payment;
 use App\Models\PrescriptionItem;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -162,7 +163,11 @@ class InvoiceService
 
     private function assertModifiable(Invoice $invoice): void
     {
-        if ($invoice->status !== Invoice::STATUS_UNPAID) {
+        $hasCompletedPayment = $invoice->payments()
+            ->where('status', Payment::STATUS_COMPLETED)
+            ->exists();
+
+        if ($invoice->status !== Invoice::STATUS_UNPAID || $hasCompletedPayment) {
             throw ValidationException::withMessages([
                 'invoice' => [InvoiceMessage::INVOICE_NOT_MODIFIABLE],
             ]);

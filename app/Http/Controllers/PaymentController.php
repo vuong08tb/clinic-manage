@@ -7,6 +7,7 @@ use App\Http\Requests\Payment\StorePaymentRequest;
 use App\Http\Resources\PaymentResource;
 use App\Http\Responses\ApiResponse;
 use App\Models\Invoice;
+use App\Models\Payment;
 use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,6 +33,22 @@ class PaymentController extends Controller
             new PaymentResource($payment),
             PaymentMessage::CREATED,
             Response::HTTP_CREATED,
+        );
+    }
+
+    /**
+     * Capture a pending payment on PayPal and mark the invoice paid once fully settled.
+     */
+    public function capture(Payment $payment): JsonResponse
+    {
+        $captured = $this->service->capture($payment);
+
+        return ApiResponse::resource(
+            new PaymentResource($captured),
+            $captured->status === Payment::STATUS_COMPLETED
+                ? PaymentMessage::CAPTURED
+                : PaymentMessage::CAPTURE_FAILED,
+            Response::HTTP_OK,
         );
     }
 }

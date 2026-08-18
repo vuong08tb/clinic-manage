@@ -62,6 +62,55 @@ class PaymentService
     }
 
     /**
+     * Capture a pending payment on PayPal and reconcile the invoice status.
+     */
+    public function capture(Payment $payment): Payment
+    {
+        return DB::transaction(function () use ($payment): Payment {
+            $lockedPayment = Payment::query()->lockForUpdate()->findOrFail($payment->getKey());
+
+            if ($lockedPayment->status !== Payment::STATUS_PENDING) {
+                throw ValidationException::withMessages([
+                    'payment' => [PaymentMessage::PAYMENT_CANNOT_BE_CAPTURED],
+                ]);
+            }
+
+            $lockedInvoice = Invoice::query()->lockForUpdate()->findOrFail($lockedPayment->invoice_id);
+
+            $completedTotal = (float) $lockedInvoice->payments()
+                ->where('status', Payment::STATUS_COMPLETED)
+                ->sum('amount');
+
+            // Reject before touching PayPal: capturing real money we would then have to
+            // discard as "failed" locally is worse than blocking the request up front.
+            if ($completedTotal + (float) $lockedPayment->amount > (float) $lockedInvoice->total) {
+                throw ValidationException::withMessages([
+                    'payment' => [PaymentMessage::CAPTURE_WOULD_EXCEED_TOTAL],
+                ]);
+            }
+
+            $order = $this->payPalService->captureOrder($lockedPayment->provider_order_id);
+            $success = data_get($order, 'status') === 'COMPLETED';
+
+            if ($success) {
+                $lockedPayment->update([
+                    'status' => Payment::STATUS_COMPLETED,
+                    'provider_capture_id' => data_get($order, 'purchase_units.0.payments.captures.0.id'),
+                    'paid_at' => now(),
+                ]);
+
+                if ($completedTotal + (float) $lockedPayment->amount >= (float) $lockedInvoice->total) {
+                    $lockedInvoice->update(['status' => Invoice::STATUS_PAID]);
+                }
+            } else {
+                $lockedPayment->update(['status' => Payment::STATUS_FAILED]);
+            }
+
+            return $lockedPayment->refresh();
+        });
+    }
+
+    /**
      * Extract the customer-facing approval URL from a PayPal Order response.
      *
      * @param  array<string, mixed>  $order
