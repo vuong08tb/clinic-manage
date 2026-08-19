@@ -15,7 +15,7 @@
 
         <div class="relative flex items-center gap-3">
             <span class="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/30 backdrop-blur">
-                <x-ui.icon name="clinic" class="h-6 w-6" />
+                <x-ui.icon name="clinic" size="h-6 w-6" />
             </span>
             <div>
                 <p class="text-base font-bold">Clinic Management</p>

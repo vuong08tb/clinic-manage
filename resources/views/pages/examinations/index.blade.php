@@ -3,7 +3,8 @@
 @section('title', 'Phiếu khám')
 
 @section('content')
-<div x-data="examinationIndexPage" x-init="init()" class="mx-auto max-w-[1400px] space-y-6">
+<div x-data="examinationIndexPage" x-init="init()" x-on:keydown.escape.window="handleEscape()"
+    class="mx-auto max-w-[1400px] space-y-6">
     <x-layout.page-header title="Phiếu khám" description="Hồ sơ khám bệnh được tạo từ lịch hẹn đã xác nhận.">
         <x-slot:actions>
             <x-ui.button variant="secondary" x-on:click="refresh()" x-bind:disabled="refreshing">
@@ -11,7 +12,7 @@
                 <span x-text="refreshing ? 'Đang tải' : 'Làm mới'"></span>
             </x-ui.button>
 
-            <x-ui.button x-show="canCreate" href="{{ route('web.examinations.create') }}">
+            <x-ui.button x-show="canCreate" x-on:click="openCreateModal()">
                 <x-ui.icon name="examination" />
                 Tạo phiếu khám
             </x-ui.button>
@@ -80,8 +81,7 @@
         <x-ui.empty-state icon="examination" title="Không tìm thấy phiếu khám"
             description="Hãy thử bộ lọc khác hoặc tạo phiếu khám mới từ lịch hẹn đã xác nhận.">
             <x-slot:action>
-                <x-ui.button x-show="canCreate" href="{{ route('web.examinations.create') }}">Tạo phiếu khám
-                </x-ui.button>
+                <x-ui.button x-show="canCreate" x-on:click="openCreateModal()">Tạo phiếu khám</x-ui.button>
             </x-slot:action>
         </x-ui.empty-state>
     </section>
@@ -90,16 +90,22 @@
         {{-- Mobile cards --}}
         <div class="divide-y divide-slate-100 md:hidden">
             <template x-for="examination in examinations" :key="examination.id">
-                <a x-bind:href="examinationDetailUrl(examination)" class="block space-y-2 p-4">
-                    <div class="flex items-start justify-between gap-3">
-                        <p class="text-sm font-semibold text-slate-900"
-                            x-text="`${formatDate(examination.examined_at, { dateStyle: 'medium' })} · ${formatTime(examination.examined_at)}`">
-                        </p>
-                    </div>
+                <article class="space-y-3 p-4">
+                    <p class="text-sm font-semibold text-slate-900"
+                        x-text="`${formatDate(examination.examined_at, { dateStyle: 'medium' })} · ${formatTime(examination.examined_at)}`">
+                    </p>
                     <p class="text-sm text-slate-600" x-text="examination.patient?.full_name ?? '—'"></p>
                     <p class="text-xs text-slate-500" x-text="`BS. ${examination.doctor?.user?.name ?? '—'}`"></p>
                     <p class="truncate text-xs text-slate-500" x-text="examination.diagnosis"></p>
-                </a>
+
+                    <div class="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
+                        <x-ui.row-action label="Xem" icon="eye" x-show="canView"
+                            x-on:click="openDetailModal(examination)" />
+
+                        <x-ui.row-action label="Sửa" icon="edit" tone="neutral" x-show="canUpdate"
+                            x-on:click="openEditModal(examination)" />
+                    </div>
+                </article>
             </template>
         </div>
 
@@ -130,10 +136,13 @@
                             <td class="px-5 py-4 max-w-xs truncate text-sm text-slate-600"
                                 x-text="examination.diagnosis"></td>
                             <td class="whitespace-nowrap px-5 py-4 text-right">
-                                <a x-show="canView" x-bind:href="examinationDetailUrl(examination)"
-                                    class="text-sm font-semibold text-blue-600 hover:text-blue-700">
-                                    Xem
-                                </a>
+                                <div class="inline-flex items-center gap-2">
+                                    <x-ui.row-action label="Xem" icon="eye" x-show="canView"
+                                        x-on:click="openDetailModal(examination)" />
+
+                                    <x-ui.row-action label="Sửa" icon="edit" tone="neutral" x-show="canUpdate"
+                                        x-on:click="openEditModal(examination)" />
+                                </div>
                             </td>
                         </tr>
                     </template>
@@ -166,5 +175,154 @@
             </div>
         </div>
     </section>
+
+    {{-- Detail modal --}}
+    <x-ui.modal show="detailOpen" close="closeDetailModal()" id="examination-detail" title="Chi tiết phiếu khám"
+        subtitle-expr="detail?.id ? `Mã phiếu khám: #${detail.id}` : ''">
+        <div x-show="detailLoading" class="space-y-3" role="status" aria-label="Đang tải phiếu khám">
+            <div class="h-5 w-40 animate-pulse rounded bg-slate-100"></div>
+            <div class="h-24 animate-pulse rounded-xl bg-slate-100"></div>
+        </div>
+
+        <p x-cloak x-show="detailError" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+            role="alert" x-text="detailError"></p>
+
+        <div x-cloak x-show="!detailLoading && !detailError && detail" class="space-y-5">
+            <div>
+                <p class="font-bold text-slate-900" x-text="detail?.patient?.full_name ?? '—'"></p>
+                <p class="text-sm text-slate-500" x-text="`BS. ${detail?.doctor?.user?.name ?? '—'}`"></p>
+            </div>
+
+            <dl class="grid gap-5 sm:grid-cols-2">
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">Ngày khám</dt>
+                    <dd class="mt-1 font-semibold text-slate-900" x-text="formatDate(detail?.examined_at)"></dd>
+                </div>
+
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">Mã bệnh nhân</dt>
+                    <dd class="mt-1 font-semibold text-slate-900" x-text="detail?.patient?.code ?? '—'"></dd>
+                </div>
+
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">Lịch hẹn liên quan</dt>
+                    <dd class="mt-1 font-semibold text-slate-900" x-text="`#${detail?.appointment_id}`"></dd>
+                </div>
+            </dl>
+
+            <div class="border-t border-slate-200 pt-5">
+                <h3 class="text-sm font-semibold text-slate-700">Chẩn đoán</h3>
+                <p class="mt-2 whitespace-pre-line text-sm text-slate-800" x-text="detail?.diagnosis"></p>
+            </div>
+
+            <div>
+                <h3 class="text-sm font-semibold text-slate-700">Ghi chú</h3>
+                <p class="mt-2 whitespace-pre-line text-sm text-slate-600"
+                    x-text="detail?.notes || 'Không có ghi chú.'"></p>
+            </div>
+        </div>
+
+        <x-slot:footer>
+            <x-ui.button variant="secondary" x-on:click="closeDetailModal()">
+                Đóng
+            </x-ui.button>
+
+            <x-ui.button x-show="canUpdate" x-on:click="editFromDetail()">
+                Sửa phiếu khám
+            </x-ui.button>
+        </x-slot:footer>
+    </x-ui.modal>
+
+    {{-- Create/update modal --}}
+    <x-ui.modal show="formOpen" close="closeFormModal()" id="examination-form-modal"
+        title-expr="formMode === 'create' ? 'Tạo phiếu khám' : 'Cập nhật phiếu khám'"
+        subtitle-expr="formMode === 'create' ? 'Chỉ tạo được từ lịch hẹn đang ở trạng thái đã xác nhận.' : 'Cập nhật chẩn đoán và ghi chú của phiếu khám.'">
+        <form id="examination-form" x-on:submit.prevent="submitForm()" novalidate class="space-y-5">
+            <div x-cloak x-show="formMessage"
+                class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700" role="alert"
+                x-text="formMessage"></div>
+
+            <div>
+                <label class="mb-2 block text-sm font-semibold text-slate-700">
+                    Lịch hẹn đã xác nhận <span class="text-rose-600">*</span>
+                </label>
+
+                <div x-show="preselecting" class="text-sm text-slate-500">Đang tải lịch hẹn…</div>
+
+                <div x-show="!preselecting && form.appointment_id"
+                    class="flex items-center justify-between rounded-xl border border-slate-300 px-3 py-2.5">
+                    <span class="text-sm text-slate-800" x-text="form.appointment_label"></span>
+                    <button type="button" x-show="formMode === 'create'" class="text-xs font-semibold text-rose-600"
+                        x-on:click="clearAppointment()">
+                        Đổi
+                    </button>
+                </div>
+
+                <div x-show="!preselecting && !form.appointment_id && formMode === 'create'" class="relative">
+                    <input type="text" class="form-input" placeholder="Tìm theo tên bệnh nhân, bác sĩ hoặc lý do khám"
+                        x-model="appointmentQuery" x-on:input.debounce.350ms="searchAppointments()"
+                        x-bind:class="{ 'form-input-error': fieldError('appointment_id') }">
+
+                    <ul x-show="appointmentResults.length > 0"
+                        class="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                        <template x-for="appointment in appointmentResults" :key="appointment.id">
+                            <li>
+                                <button type="button" x-on:click="selectAppointment(appointment)"
+                                    class="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50">
+                                    <span class="font-semibold" x-text="appointment.patient?.full_name ?? '—'"></span>
+                                    <span class="ml-1 text-xs text-slate-500"
+                                        x-text="`· BS. ${appointment.doctor?.user?.name ?? '—'}`"></span>
+                                </button>
+                            </li>
+                        </template>
+                    </ul>
+
+                    <p x-show="!searchingAppointment && appointmentQuery.trim() !== '' && appointmentResults.length === 0"
+                        class="mt-2 text-xs text-slate-400">
+                        Không tìm thấy lịch hẹn đã xác nhận phù hợp.
+                    </p>
+                </div>
+
+                <p x-cloak x-show="fieldError('appointment_id')" class="mt-1.5 text-sm text-rose-600"
+                    x-text="fieldError('appointment_id')"></p>
+            </div>
+
+            <div>
+                <label for="examination-diagnosis" class="mb-2 block text-sm font-semibold text-slate-700">
+                    Chẩn đoán <span class="text-rose-600">*</span>
+                </label>
+                <textarea id="examination-diagnosis" rows="4" class="form-input" required x-model.trim="form.diagnosis"
+                    x-bind:class="{ 'form-input-error': fieldError('diagnosis') }"></textarea>
+                <p x-cloak x-show="fieldError('diagnosis')" class="mt-1.5 text-sm text-rose-600"
+                    x-text="fieldError('diagnosis')"></p>
+            </div>
+
+            <div>
+                <label for="examination-notes" class="mb-2 block text-sm font-semibold text-slate-700">
+                    Ghi chú
+                </label>
+                <textarea id="examination-notes" rows="3" class="form-input" x-model.trim="form.notes"
+                    x-bind:class="{ 'form-input-error': fieldError('notes') }"></textarea>
+                <p x-cloak x-show="fieldError('notes')" class="mt-1.5 text-sm text-rose-600"
+                    x-text="fieldError('notes')"></p>
+            </div>
+        </form>
+
+        <x-slot:footer>
+            <x-ui.button variant="secondary" x-on:click="closeFormModal()" x-bind:disabled="submitting">
+                Hủy
+            </x-ui.button>
+
+            <x-ui.button type="submit" form="examination-form" x-bind:disabled="submitting">
+                <span x-show="submitting"
+                    class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                    aria-hidden="true"></span>
+
+                <span x-text="submitting
+                        ? 'Đang lưu…'
+                        : (formMode === 'create' ? 'Tạo phiếu khám' : 'Lưu thay đổi')"></span>
+            </x-ui.button>
+        </x-slot:footer>
+    </x-ui.modal>
 </div>
 @endsection

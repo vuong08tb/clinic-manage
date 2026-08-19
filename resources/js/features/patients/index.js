@@ -1,6 +1,7 @@
 import { ApiError } from '../../core/api-error';
 import { firstFieldError } from '../../core/form-errors';
 import {
+    formatDate,
     formatDateOnly,
     genderLabel,
     localDateInput,
@@ -13,6 +14,7 @@ import { PERMISSIONS } from '../../core/permissions';
 import {
     createPatient,
     deletePatient,
+    getPatient,
     getPatients,
     updatePatient,
 } from './patient-api';
@@ -38,14 +40,19 @@ export function patientIndexPage() {
         listError: '',
         _listRequestId: 0,
 
-        drawerOpen: false,
+        formOpen: false,
         formMode: 'create',
         editingId: null,
         editingCode: null,
         form: emptyPatientForm(),
-        errors: {},
+        formErrors: {},
         formMessage: '',
         submitting: false,
+
+        detailOpen: false,
+        detail: null,
+        detailLoading: false,
+        detailError: '',
 
         deleteTarget: null,
         deleting: false,
@@ -181,23 +188,23 @@ export function patientIndexPage() {
 
         resetForm() {
             this.form = emptyPatientForm();
-            this.errors = {};
+            this.formErrors = {};
             this.formMessage = '';
             this.editingId = null;
             this.editingCode = null;
         },
 
-        openCreateDrawer() {
+        openCreateModal() {
             if (!this.canCreate) {
                 return;
             }
 
             this.resetForm();
             this.formMode = 'create';
-            this.drawerOpen = true;
+            this.formOpen = true;
         },
 
-        openEditDrawer(patient) {
+        openEditModal(patient) {
             if (!this.canUpdate) {
                 return;
             }
@@ -210,16 +217,64 @@ export function patientIndexPage() {
 
             this.form = patientToForm(patient);
 
-            this.drawerOpen = true;
+            this.formOpen = true;
         },
 
-        closeDrawer() {
+        closeFormModal() {
             if (this.submitting) {
                 return;
             }
 
-            this.drawerOpen = false;
+            this.formOpen = false;
             this.resetForm();
+        },
+
+        async openDetailModal(patient) {
+            if (!this.canView) {
+                return;
+            }
+
+            this.detailOpen = true;
+            this.detailError = '';
+            this.detailLoading = true;
+
+            // Show the row data immediately, then replace it with the full record.
+            this.detail = patient;
+
+            try {
+                const response = await getPatient(patient.id);
+
+                this.detail = response.data;
+            } catch (error) {
+                if (error instanceof ApiError && error.status === 404) {
+                    this.detailError = 'Không tìm thấy bệnh nhân.';
+                } else if (error instanceof ApiError && error.status === 403) {
+                    this.detailError = 'Bạn không có quyền xem bệnh nhân này.';
+                } else {
+                    this.detailError =
+                        error.message
+                        ?? 'Không thể tải hồ sơ bệnh nhân.';
+                }
+            } finally {
+                this.detailLoading = false;
+            }
+        },
+
+        closeDetailModal() {
+            this.detailOpen = false;
+            this.detail = null;
+            this.detailError = '';
+        },
+
+        editFromDetail() {
+            const patient = this.detail;
+
+            if (!patient) {
+                return;
+            }
+
+            this.closeDetailModal();
+            this.openEditModal(patient);
         },
 
         async submitForm() {
@@ -240,7 +295,7 @@ export function patientIndexPage() {
             }
 
             this.submitting = true;
-            this.errors = {};
+            this.formErrors = {};
             this.formMessage = '';
 
             try {
@@ -259,7 +314,7 @@ export function patientIndexPage() {
                     'success',
                 );
 
-                this.drawerOpen = false;
+                this.formOpen = false;
                 this.resetForm();
 
                 if (!editing) {
@@ -269,7 +324,7 @@ export function patientIndexPage() {
                 await this.loadPatients();
             } catch (error) {
                 if (error instanceof ApiError) {
-                    this.errors = error.errors ?? {};
+                    this.formErrors = error.errors ?? {};
 
                     if (error.status === 403) {
                         this.formMessage =
@@ -292,7 +347,7 @@ export function patientIndexPage() {
         },
 
         fieldError(field) {
-            return firstFieldError(this.errors, field);
+            return firstFieldError(this.formErrors, field);
         },
 
         askDelete(patient) {
@@ -332,6 +387,10 @@ export function patientIndexPage() {
 
                 this.deleteTarget = null;
 
+                if (this.detailOpen) {
+                    this.closeDetailModal();
+                }
+
                 if (
                     this.patients.length === 1
                     && this.filters.page > 1
@@ -357,15 +416,18 @@ export function patientIndexPage() {
                 return;
             }
 
-            if (this.drawerOpen) {
-                this.closeDrawer();
+            if (this.formOpen) {
+                this.closeFormModal();
+
+                return;
+            }
+
+            if (this.detailOpen) {
+                this.closeDetailModal();
             }
         },
 
-        patientDetailUrl(patient) {
-            return `/patients/${patient.id}`;
-        },
-
+        formatDate,
         formatDateOnly,
         genderLabel,
     };

@@ -40,14 +40,6 @@ class FrontendPageTest extends TestCase
             );
     }
 
-    public function test_patient_detail_page_is_available(): void
-    {
-        $this->withoutVite()
-            ->get('/patients/1')
-            ->assertOk()
-            ->assertSee('Chi tiết bệnh nhân');
-    }
-
     public function test_appointment_index_page_is_available(): void
     {
         $this->withoutVite()
@@ -68,19 +60,31 @@ class FrontendPageTest extends TestCase
             );
     }
 
-    public function test_examination_create_page_is_available(): void
+    /**
+     * Add/edit/detail live in modals on the list page, so every feature renders
+     * the shared modal shell instead of extra create/detail routes.
+     */
+    public function test_feature_pages_render_modal_shells(): void
     {
-        $this->withoutVite()
-            ->get('/examinations/create')
-            ->assertOk()
-            ->assertSee('Tạo phiếu khám');
+        $pages = [
+            '/patients' => ['patient-form-modal-title', 'patient-detail-title'],
+            '/appointments' => ['appointment-form-modal-title', 'appointment-detail-title'],
+            '/examinations' => ['examination-form-modal-title', 'examination-detail-title'],
+        ];
+
+        foreach ($pages as $url => $modalTitleIds) {
+            $response = $this->withoutVite()->get($url)->assertOk();
+
+            foreach ($modalTitleIds as $modalTitleId) {
+                $response->assertSee($modalTitleId, false);
+            }
+        }
     }
 
-    public function test_examination_detail_page_is_available(): void
+    public function test_removed_detail_routes_are_gone(): void
     {
-        $this->withoutVite()
-            ->get('/examinations/1')
-            ->assertOk()
-            ->assertSee('Chi tiết phiếu khám');
+        $this->withoutVite()->get('/patients/1')->assertNotFound();
+        $this->withoutVite()->get('/examinations/create')->assertNotFound();
+        $this->withoutVite()->get('/examinations/1')->assertNotFound();
     }
 }

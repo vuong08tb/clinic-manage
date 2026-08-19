@@ -26,7 +26,7 @@
                         x-text="$store.auth.user?.name"></span>
                     <span class="block truncate text-xs text-slate-500" x-text="$store.auth.roleName"></span>
                 </span>
-                <x-ui.icon name="chevron-down" class="h-4 w-4 text-slate-400" />
+                <x-ui.icon name="chevron-down" size="h-4 w-4" class="text-slate-400" />
             </button>
 
             <div x-cloak x-show="open" x-transition.origin.top.right

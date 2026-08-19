@@ -1,4 +1,5 @@
 import { ApiError } from "../../core/api-error";
+import { firstFieldError } from "../../core/form-errors";
 import { formatDate, formatTime } from "../../core/formatters";
 import {
     calculateVisiblePages,
@@ -6,10 +7,21 @@ import {
 } from "../../core/pagination";
 import { PERMISSIONS } from "../../core/permissions";
 import {
+    createExamination,
+    getAppointment,
+    getExamination,
     getExaminations,
     listDoctorOptions,
+    searchConfirmedAppointments,
     searchPatientOptions,
+    updateExamination,
 } from "./examination-api";
+import {
+    createPayload,
+    editPayload,
+    emptyExaminationForm,
+    examinationToForm,
+} from "./examination-form";
 
 export function examinationIndexPage() {
     return {
@@ -34,12 +46,35 @@ export function examinationIndexPage() {
         patientResults: [],
         _patientSearchRequestId: 0,
 
+        formOpen: false,
+        formMode: "create",
+        editingId: null,
+        form: emptyExaminationForm(),
+        formErrors: {},
+        formMessage: "",
+        submitting: false,
+
+        appointmentQuery: "",
+        appointmentResults: [],
+        searchingAppointment: false,
+        preselecting: false,
+        _appointmentSearchRequestId: 0,
+
+        detailOpen: false,
+        detail: null,
+        detailLoading: false,
+        detailError: "",
+
         get canCreate() {
             return this.$store.auth.can(PERMISSIONS.EXAMINATIONS.CREATE);
         },
 
         get canView() {
             return this.$store.auth.can(PERMISSIONS.EXAMINATIONS.FINDONE);
+        },
+
+        get canUpdate() {
+            return this.$store.auth.can(PERMISSIONS.EXAMINATIONS.UPDATE);
         },
 
         get visiblePages() {
@@ -65,6 +100,29 @@ export function examinationIndexPage() {
             }
 
             await Promise.all([this.loadDoctorOptions(), this.loadList()]);
+
+            await this.openCreateFromQueryString();
+        },
+
+        // Deep link from the appointment list: /examinations?appointment_id=123
+        async openCreateFromQueryString() {
+            const appointmentId = new URLSearchParams(
+                window.location.search,
+            ).get("appointment_id");
+
+            if (!appointmentId) {
+                return;
+            }
+
+            window.history.replaceState({}, "", "/examinations");
+
+            if (!this.canCreate) {
+                return;
+            }
+
+            this.openCreateModal();
+
+            await this.preselectAppointment(Number(appointmentId));
         },
 
         async loadDoctorOptions() {
@@ -201,8 +259,241 @@ export function examinationIndexPage() {
             this.applyFilters();
         },
 
-        examinationDetailUrl(examination) {
-            return `/examinations/${examination.id}`;
+        resetForm() {
+            this.form = emptyExaminationForm();
+            this.formErrors = {};
+            this.formMessage = "";
+            this.editingId = null;
+            this.appointmentQuery = "";
+            this.appointmentResults = [];
+        },
+
+        openCreateModal() {
+            if (!this.canCreate) {
+                return;
+            }
+
+            this.resetForm();
+            this.formMode = "create";
+            this.formOpen = true;
+        },
+
+        openEditModal(examination) {
+            if (!this.canUpdate) {
+                return;
+            }
+
+            this.resetForm();
+
+            this.formMode = "edit";
+            this.editingId = examination.id;
+            this.form = examinationToForm(examination);
+            this.formOpen = true;
+        },
+
+        closeFormModal() {
+            if (this.submitting) {
+                return;
+            }
+
+            this.formOpen = false;
+            this.resetForm();
+        },
+
+        async preselectAppointment(appointmentId) {
+            this.preselecting = true;
+
+            try {
+                const response = await getAppointment(appointmentId);
+                const appointment = response.data;
+
+                if (appointment.status !== "confirmed") {
+                    this.formMessage =
+                        "Chỉ lịch hẹn đã xác nhận mới có thể tạo phiếu khám.";
+
+                    return;
+                }
+
+                this.selectAppointment(appointment);
+            } catch {
+                this.formMessage = "Không tìm thấy lịch hẹn đã chọn.";
+            } finally {
+                this.preselecting = false;
+            }
+        },
+
+        async searchAppointments() {
+            const requestId = ++this._appointmentSearchRequestId;
+            const term = this.appointmentQuery.trim();
+
+            if (term === "") {
+                this.appointmentResults = [];
+
+                return;
+            }
+
+            this.searchingAppointment = true;
+
+            try {
+                const response = await searchConfirmedAppointments(term);
+
+                if (requestId !== this._appointmentSearchRequestId) {
+                    return;
+                }
+
+                this.appointmentResults = response.data ?? [];
+            } catch {
+                if (requestId === this._appointmentSearchRequestId) {
+                    this.appointmentResults = [];
+                }
+            } finally {
+                if (requestId === this._appointmentSearchRequestId) {
+                    this.searchingAppointment = false;
+                }
+            }
+        },
+
+        selectAppointment(appointment) {
+            this.form.appointment_id = appointment.id;
+            this.form.appointment_label = `${appointment.patient?.full_name ?? "—"} · BS. ${appointment.doctor?.user?.name ?? "—"}`;
+            this.appointmentQuery = "";
+            this.appointmentResults = [];
+        },
+
+        clearAppointment() {
+            this.form.appointment_id = null;
+            this.form.appointment_label = "";
+        },
+
+        async submitForm() {
+            if (this.submitting) {
+                return;
+            }
+
+            const editing = this.formMode === "edit";
+            const allowed = editing ? this.canUpdate : this.canCreate;
+
+            if (!allowed) {
+                this.$store.ui.notify(
+                    "Bạn không có quyền thực hiện thao tác này.",
+                    "error",
+                );
+
+                return;
+            }
+
+            if (!editing && !this.form.appointment_id) {
+                this.formMessage = "Vui lòng chọn lịch hẹn đã xác nhận.";
+
+                return;
+            }
+
+            this.submitting = true;
+            this.formErrors = {};
+            this.formMessage = "";
+
+            try {
+                if (editing) {
+                    await updateExamination(
+                        this.editingId,
+                        editPayload(this.form),
+                    );
+                } else {
+                    await createExamination(createPayload(this.form));
+                }
+
+                this.$store.ui.notify(
+                    editing
+                        ? "Cập nhật phiếu khám thành công."
+                        : "Tạo phiếu khám thành công.",
+                    "success",
+                );
+
+                this.formOpen = false;
+                this.resetForm();
+
+                if (!editing) {
+                    this.filters.page = 1;
+                }
+
+                await this.loadList();
+            } catch (error) {
+                if (error instanceof ApiError) {
+                    this.formErrors = error.errors ?? {};
+                    this.formMessage =
+                        error.status === 403
+                            ? "Bạn không có quyền thực hiện thao tác này."
+                            : error.message;
+                } else {
+                    this.formMessage =
+                        "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.";
+                }
+            } finally {
+                this.submitting = false;
+            }
+        },
+
+        fieldError(field) {
+            return firstFieldError(this.formErrors, field);
+        },
+
+        async openDetailModal(examination) {
+            if (!this.canView) {
+                return;
+            }
+
+            this.detailOpen = true;
+            this.detailError = "";
+            this.detailLoading = true;
+
+            // Show the row data immediately, then replace it with the full record.
+            this.detail = examination;
+
+            try {
+                const response = await getExamination(examination.id);
+
+                this.detail = response.data;
+            } catch (error) {
+                if (error instanceof ApiError && error.status === 404) {
+                    this.detailError = "Không tìm thấy phiếu khám.";
+                } else if (error instanceof ApiError && error.status === 403) {
+                    this.detailError = "Bạn không có quyền xem phiếu khám này.";
+                } else {
+                    this.detailError =
+                        error.message ?? "Không thể tải phiếu khám.";
+                }
+            } finally {
+                this.detailLoading = false;
+            }
+        },
+
+        closeDetailModal() {
+            this.detailOpen = false;
+            this.detail = null;
+            this.detailError = "";
+        },
+
+        editFromDetail() {
+            const examination = this.detail;
+
+            if (!examination) {
+                return;
+            }
+
+            this.closeDetailModal();
+            this.openEditModal(examination);
+        },
+
+        handleEscape() {
+            if (this.formOpen) {
+                this.closeFormModal();
+
+                return;
+            }
+
+            if (this.detailOpen) {
+                this.closeDetailModal();
+            }
         },
 
         formatDate,

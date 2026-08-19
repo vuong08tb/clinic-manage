@@ -159,7 +159,7 @@
                         <span class="block text-sm font-semibold text-slate-800">Tạo lịch hẹn</span>
                         <span class="block text-xs text-slate-500">Quản lý lịch hẹn khám bệnh</span>
                     </span>
-                    <x-ui.icon name="arrow-right" class="h-4 w-4 text-slate-400" />
+                    <x-ui.icon name="arrow-right" size="h-4 w-4" class="text-slate-400" />
                     </button>
 
                     <a x-show="canCreatePatient" href="{{ route('web.patients.index') }}"
@@ -171,7 +171,7 @@
                             <span class="block text-sm font-semibold text-slate-800">Thêm bệnh nhân</span>
                             <span class="block text-xs text-slate-500">Quản lý hồ sơ bệnh nhân</span>
                         </span>
-                        <x-ui.icon name="arrow-right" class="h-4 w-4 text-slate-400" />
+                        <x-ui.icon name="arrow-right" size="h-4 w-4" class="text-slate-400" />
                     </a>
 
                     <button x-show="$store.auth.can('INVOICES.CREATE')" type="button"
@@ -184,7 +184,7 @@
                             <span class="block text-sm font-semibold text-slate-800">Tạo hóa đơn</span>
                             <span class="block text-xs text-slate-500">Task FE-08</span>
                         </span>
-                        <x-ui.icon name="arrow-right" class="h-4 w-4 text-slate-400" />
+                        <x-ui.icon name="arrow-right" size="h-4 w-4" class="text-slate-400" />
                     </button>
             </div>
 

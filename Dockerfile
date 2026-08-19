@@ -1,5 +1,7 @@
 FROM php:8.3-cli
 
+ENV TZ=Asia/Ho_Chi_Minh
+
 WORKDIR /var/www
 
 RUN apt-get update && apt-get install -y \
@@ -7,6 +9,10 @@ RUN apt-get update && apt-get install -y \
     unzip \
     libpq-dev \
     libzip-dev \
+    tzdata \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone \
+    && echo "date.timezone=${TZ}" > /usr/local/etc/php/conf.d/timezone.ini \
     && docker-php-ext-install \
         pdo_pgsql \
         zip \
