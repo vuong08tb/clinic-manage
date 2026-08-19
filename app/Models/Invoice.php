@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Represent a billing record generated for an examination.
@@ -29,6 +30,14 @@ class Invoice extends Model
     public function examination(): BelongsTo
     {
         return $this->belongsTo(Examination::class);
+    }
+
+    /**
+     * Return the payments recorded against this invoice.
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 
     /**
