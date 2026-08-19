@@ -1,0 +1,9 @@
+export const PERMISSIONS = {
+    PATIENTS: {
+        FINDALL: 'PATIENTS.FINDALL',
+        FINDONE: 'PATIENTS.FINDONE',
+        CREATE: 'PATIENTS.CREATE',
+        UPDATE: 'PATIENTS.UPDATE',
+        DELETE: 'PATIENTS.DELETE',
+    },
+};

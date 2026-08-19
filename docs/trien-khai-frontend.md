@@ -83,6 +83,7 @@ resources/
 |   |   |-- api-error.js
 |   |   |-- auth-storage.js
 |   |   |-- permissions.js
+|   |   |-- pagination.js
 |   |   `-- formatters.js
 |   |-- stores/
 |   |   |-- auth-store.js
@@ -243,12 +244,12 @@ Mục tiêu: dashboard role-aware, không gọi endpoint người dùng không c
 
 ### FE-03 — Bệnh nhân
 
-- [ ] Danh sách, search và pagination server-side.
-- [ ] Drawer tạo/sửa bệnh nhân.
-- [ ] Validation `422` theo field.
-- [ ] Trang chi tiết bệnh nhân.
-- [ ] Action hiển thị theo `PATIENTS.*`.
-- [ ] Empty/loading/error state.
+- [x] Danh sách, search và pagination server-side.
+- [x] Drawer tạo/sửa bệnh nhân.
+- [x] Validation `422` theo field.
+- [x] Trang chi tiết bệnh nhân.
+- [x] Action hiển thị theo `PATIENTS.*`.
+- [x] Empty/loading/error state.
 
 ### FE-04 — Lịch hẹn
 
@@ -360,3 +361,19 @@ lấy `meta.total`; không phát request dẫn tới `403`.
 - Full backend suite: 187 test pass; còn 9 test `AppointmentTest` thất bại do fixture dùng
   ngày cố định `2026-08-15`, đã nằm trong quá khứ tại thời điểm chạy `2026-08-18`. Đây là lỗi
   test theo thời gian có sẵn, không phát sinh từ frontend.
+
+### 2026-08-19 — FE-03 và dọn cấu trúc `core/`
+
+- Hoàn thiện FE-03 (bệnh nhân): danh sách + search + pagination server-side, drawer tạo/sửa,
+  validation `422` theo field, trang chi tiết, empty/loading/error state, action theo
+  `PATIENTS.*`.
+- Tạo `core/permissions.js` (`PERMISSIONS.PATIENTS.*`) đối chiếu `RbacSeeder.php`; chuyển
+  `patients/index.js` và `patients/show.js` sang dùng getter ngữ nghĩa (`canCreate`,
+  `canUpdate`, `canDelete`, `canView`) thay vì gọi `$store.auth.can('PATIENTS.X')` bằng chuỗi
+  tay rải rác trong Blade.
+- Chuyển `features/patients/pagination.js` (logic phân trang thuần túy, không đặc thù patient)
+  sang `core/pagination.js` để tái dùng cho các feature danh sách khác từ FE-04 trở đi.
+- `sidebar.blade.php` giữ nguyên chuỗi permission dạng PHP array — đây là cấu hình PHP-side,
+  không áp dụng được getter JS, và đã là nguồn tập trung duy nhất cho toàn bộ menu nên không
+  cần refactor thêm ở bước này.
+- `npm run build` thành công sau refactor.

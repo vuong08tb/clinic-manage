@@ -9,7 +9,7 @@
             description="Tổng quan công việc theo quyền truy cập của bạn."
         >
             <x-slot:actions>
-                <x-ui.button variant="secondary" x-on:click="load" x-bind:disabled="refreshing">
+                <x-ui.button variant="secondary" x-on:click="load()" x-bind:disabled="refreshing">
                     <x-ui.icon name="refresh" x-bind:class="{ 'animate-spin': refreshing }" />
                     <span x-text="refreshing ? 'Đang cập nhật' : 'Làm mới'"></span>
                 </x-ui.button>
@@ -98,7 +98,7 @@
                 <div x-cloak x-show="!appointmentsLoading && appointmentsError" class="p-8 text-center">
                     <p class="font-semibold text-rose-700">Không thể tải lịch hẹn</p>
                     <p class="mt-1 text-sm text-slate-500" x-text="appointmentsError"></p>
-                    <button type="button" class="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-700" x-on:click="loadAppointments">Thử lại</button>
+                    <button type="button" class="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-700" x-on:click="loadAppointments()">Thử lại</button>
                 </div>
 
                 <div x-cloak x-show="!appointmentsLoading && !appointmentsError && appointments.length === 0" class="p-10 text-center">
@@ -161,19 +161,18 @@
                         <x-ui.icon name="arrow-right" class="h-4 w-4 text-slate-400" />
                     </button>
 
-                    <button
-                        x-show="$store.auth.can('PATIENTS.CREATE')"
-                        type="button"
+                    <a
+                        x-show="canCreatePatient"
+                        href="{{ route('web.patients.index') }}"
                         class="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-teal-200 hover:bg-teal-50"
-                        x-on:click="$store.ui.notify('Màn hình thêm bệnh nhân sẽ được triển khai trong FE-03.')"
                     >
                         <span class="grid h-9 w-9 place-items-center rounded-lg bg-teal-100 text-teal-700"><x-ui.icon name="patients" /></span>
                         <span class="min-w-0 flex-1">
                             <span class="block text-sm font-semibold text-slate-800">Thêm bệnh nhân</span>
-                            <span class="block text-xs text-slate-500">Task FE-03</span>
+                            <span class="block text-xs text-slate-500">Quản lý hồ sơ bệnh nhân</span>
                         </span>
                         <x-ui.icon name="arrow-right" class="h-4 w-4 text-slate-400" />
-                    </button>
+                    </a>
 
                     <button
                         x-show="$store.auth.can('INVOICES.CREATE')"
