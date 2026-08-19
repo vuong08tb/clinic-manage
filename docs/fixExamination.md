@@ -3,6 +3,7 @@
 Tài liệu ghi lại lỗ hổng phát hiện khi làm FE-05 (Phiếu khám) và các bước sửa cụ thể. Chưa
 áp dụng vào code — dùng để bạn tự sửa và kiểm tra lại.
 
+
 ## 1. Bối cảnh phát hiện
 
 Khi test trang "Tạo phiếu khám", phát hiện dropdown chọn lịch hẹn hiển thị cả lịch hẹn của

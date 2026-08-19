@@ -57,4 +57,30 @@ class FrontendPageTest extends TestCase
                 'Quản lý lịch khám của bệnh nhân theo bác sĩ.',
             );
     }
+
+    public function test_examination_index_page_is_available(): void
+    {
+        $this->withoutVite()
+            ->get('/examinations')
+            ->assertOk()
+            ->assertSee(
+                'Hồ sơ khám bệnh được tạo từ lịch hẹn đã xác nhận.',
+            );
+    }
+
+    public function test_examination_create_page_is_available(): void
+    {
+        $this->withoutVite()
+            ->get('/examinations/create')
+            ->assertOk()
+            ->assertSee('Tạo phiếu khám');
+    }
+
+    public function test_examination_detail_page_is_available(): void
+    {
+        $this->withoutVite()
+            ->get('/examinations/1')
+            ->assertOk()
+            ->assertSee('Chi tiết phiếu khám');
+    }
 }
