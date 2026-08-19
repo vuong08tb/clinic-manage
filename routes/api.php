@@ -4,6 +4,7 @@ use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\ExaminationController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MedicineController;
 use App\Http\Controllers\PatientController;
 use App\Http\Controllers\PrescriptionController;
@@ -28,6 +29,9 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::apiResource('examinations', ExaminationController::class)
         ->only(['index', 'store', 'show', 'update']);
     Route::apiResource('doctors', DoctorController::class);
+    Route::patch('/invoices/{invoice}/status', [InvoiceController::class, 'updateStatus']);
+    Route::apiResource('invoices', InvoiceController::class)
+        ->only(['index', 'store', 'show', 'update']);
     Route::patch('/medicines/{medicine}/stock', [MedicineController::class, 'adjustStock']);
     Route::apiResource('medicines', MedicineController::class);
     Route::apiResource('patients', PatientController::class);

@@ -1,0 +1,171 @@
+<?php
+
+namespace App\Services;
+
+use App\Constants\InvoiceMessage;
+use App\Models\Examination;
+use App\Models\Invoice;
+use App\Models\PrescriptionItem;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+
+/**
+ * Handle invoice queries and billing calculation rules.
+ */
+class InvoiceService
+{
+    /**
+     * Paginate invoices with validated filters and eager-loaded examination context.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    public function paginate(array $filters): LengthAwarePaginator
+    {
+        return Invoice::query()
+            ->with(['examination.patient', 'examination.doctor.user'])
+            ->when(
+                isset($filters['status']),
+                fn ($query) => $query->where('status', $filters['status']),
+            )
+            ->when(
+                isset($filters['examination_id']),
+                fn ($query) => $query->where('examination_id', $filters['examination_id']),
+            )
+            ->orderByDesc('issued_at')
+            ->orderByDesc('id')
+            ->paginate((int) ($filters['per_page'] ?? 15));
+    }
+
+    /**
+     * Load the relationships required by the invoice resource.
+     */
+    public function load(Invoice $invoice): Invoice
+    {
+        return $invoice->loadMissing([
+            'examination.patient',
+            'examination.doctor.user',
+            'examination.prescription.items.medicine',
+        ]);
+    }
+
+    /**
+     * Create an invoice from an examination, computing subtotal/total from prescription items
+     * and the configured examination fee.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function createFromExamination(array $data): Invoice
+    {
+        return DB::transaction(function () use ($data): Invoice {
+            $examination = Examination::query()
+                ->lockForUpdate()
+                ->with('prescription.items.medicine')
+                ->findOrFail($data['examination_id']);
+
+            if (Invoice::query()
+                ->where('examination_id', $examination->getKey())
+                ->exists()) {
+                throw ValidationException::withMessages([
+                    'examination' => [InvoiceMessage::EXAMINATION_ALREADY_INVOICED],
+                ]);
+            }
+
+            $medicineTotal = $examination->prescription?->items
+                ->sum(fn (PrescriptionItem $item): float => $item->quantity * (float) $item->medicine->price) ?? 0.0;
+
+            $subtotal = $medicineTotal + (float) config('clinic.examination_fee');
+            $discount = (float) ($data['discount'] ?? 0);
+
+            if ($discount > $subtotal) {
+                throw ValidationException::withMessages([
+                    'discount' => [InvoiceMessage::DISCOUNT_EXCEEDS_SUBTOTAL],
+                ]);
+            }
+
+            $invoice = Invoice::query()->create([
+                'examination_id' => $examination->getKey(),
+                'invoice_code' => 'TMP-'.Str::random(16),
+                'subtotal' => $subtotal,
+                'discount' => $discount,
+                'total' => $subtotal - $discount,
+                'status' => Invoice::STATUS_UNPAID,
+                'issued_at' => now(),
+            ]);
+
+            $invoice->forceFill([
+                'invoice_code' => sprintf('INV-%06d', (int) $invoice->getKey()),
+            ])->save();
+
+            return $invoice->refresh()->load([
+                'examination.patient',
+                'examination.doctor.user',
+                'examination.prescription.items.medicine',
+            ]);
+        });
+    }
+
+    /**
+     * Update the discount of an unpaid invoice and recompute its total.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function updateDiscount(Invoice $invoice, array $data): Invoice
+    {
+        return DB::transaction(function () use ($invoice, $data): Invoice {
+            $lockedInvoice = Invoice::query()->lockForUpdate()->findOrFail($invoice->getKey());
+
+            $this->assertModifiable($lockedInvoice);
+
+            $discount = (float) $data['discount'];
+            $subtotal = (float) $lockedInvoice->subtotal;
+
+            if ($discount > $subtotal) {
+                throw ValidationException::withMessages([
+                    'discount' => [InvoiceMessage::DISCOUNT_EXCEEDS_SUBTOTAL],
+                ]);
+            }
+
+            $lockedInvoice->update([
+                'discount' => $discount,
+                'total' => $subtotal - $discount,
+            ]);
+
+            return $lockedInvoice->refresh()->load([
+                'examination.patient',
+                'examination.doctor.user',
+                'examination.prescription.items.medicine',
+            ]);
+        });
+    }
+
+    /**
+     * Cancel an unpaid invoice.
+     */
+    public function cancel(Invoice $invoice): Invoice
+    {
+        return DB::transaction(function () use ($invoice): Invoice {
+            $lockedInvoice = Invoice::query()->lockForUpdate()->findOrFail($invoice->getKey());
+
+            $this->assertModifiable($lockedInvoice);
+
+            $lockedInvoice->update(['status' => Invoice::STATUS_CANCELLED]);
+
+            return $lockedInvoice->refresh()->load([
+                'examination.patient',
+                'examination.doctor.user',
+                'examination.prescription.items.medicine',
+            ]);
+        });
+    }
+
+    private function assertModifiable(Invoice $invoice): void
+    {
+        if ($invoice->status !== Invoice::STATUS_UNPAID) {
+            throw ValidationException::withMessages([
+                'invoice' => [InvoiceMessage::INVOICE_NOT_MODIFIABLE],
+            ]);
+        }
+    }
+}
