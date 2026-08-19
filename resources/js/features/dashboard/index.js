@@ -22,7 +22,7 @@ const WIDGETS = [
         key: 'appointments',
         label: 'Lịch hôm nay',
         caption: 'Cuộc hẹn',
-        permission: 'APPOINTMENTS.FINDALL',
+        permission: PERMISSIONS.APPOINTMENTS.FINDALL,
         endpoint: () => `/appointments?date=${localDateInput()}&per_page=1`,
         tone: 'teal',
     },
@@ -30,7 +30,7 @@ const WIDGETS = [
         key: 'examinations',
         label: 'Phiếu khám',
         caption: 'Tổng phiếu',
-        permission: 'EXAMINATIONS.FINDALL',
+        permission: PERMISSIONS.EXAMINATIONS.FINDALL,
         endpoint: '/examinations?per_page=1',
         tone: 'violet',
     },
@@ -71,6 +71,14 @@ export function dashboardPage() {
 
         get canCreatePatient() {
             return this.$store.auth.can(PERMISSIONS.PATIENTS.CREATE);
+        },
+
+        get canCreateAppointment() {
+            return this.$store.auth.can(PERMISSIONS.APPOINTMENTS.CREATE);
+        },
+
+        get canViewAppointments() {
+            return this.$store.auth.can(PERMISSIONS.APPOINTMENTS.FINDALL);
         },
 
         async init() {
@@ -116,7 +124,7 @@ export function dashboardPage() {
         },
 
         async loadAppointments() {
-            if (!this.$store.auth.can('APPOINTMENTS.FINDALL')) {
+            if (!this.$store.auth.can(PERMISSIONS.APPOINTMENTS.FINDALL)) {
                 this.appointments = [];
                 return;
             }

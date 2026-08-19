@@ -87,3 +87,9 @@ export function statusClasses(status) {
         STATUS_CLASSES[status] ?? "bg-slate-50 text-slate-700 ring-slate-600/20"
     );
 }
+
+export function localDateTimeInput(date = new Date()) {
+    const offset = date.getTimezoneOffset() * 60_000;
+
+    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}

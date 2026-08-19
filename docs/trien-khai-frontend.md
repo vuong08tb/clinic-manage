@@ -253,12 +253,12 @@ Mục tiêu: dashboard role-aware, không gọi endpoint người dùng không c
 
 ### FE-04 — Lịch hẹn
 
-- [ ] Danh sách có search, ngày, bác sĩ, bệnh nhân và status filter.
-- [ ] Chuyển đổi list/calendar week.
-- [ ] Modal tạo lịch; drawer xem/sửa.
-- [ ] Hiển thị đúng chuyển trạng thái được backend cho phép.
-- [ ] Cảnh báo xung đột lịch từ lỗi API.
-- [ ] Action hiển thị theo `APPOINTMENTS.*`.
+- [x] Danh sách có search, ngày, bác sĩ, bệnh nhân và status filter.
+- [x] Chuyển đổi list/calendar week.
+- [x] Modal tạo lịch; drawer xem/sửa.
+- [x] Hiển thị đúng chuyển trạng thái được backend cho phép.
+- [x] Cảnh báo xung đột lịch từ lỗi API.
+- [x] Action hiển thị theo `APPOINTMENTS.*`.
 
 ### FE-05 — Phiếu khám
 
@@ -377,3 +377,37 @@ lấy `meta.total`; không phát request dẫn tới `403`.
   không áp dụng được getter JS, và đã là nguồn tập trung duy nhất cho toàn bộ menu nên không
   cần refactor thêm ở bước này.
 - `npm run build` thành công sau refactor.
+
+### 2026-08-19 — FE-04 (Lịch hẹn)
+
+- Hoàn thiện FE-04: danh sách có search/ngày/trạng thái/bác sĩ filter, chuyển đổi list/calendar
+  tuần, modal tạo lịch, drawer xem/sửa + hành động chuyển trạng thái, cảnh báo xung đột lịch qua
+  lỗi `422` field `scheduled_at`, action theo `APPOINTMENTS.*`.
+- Filter "bệnh nhân" không làm dropdown/combobox riêng như filter bác sĩ — gộp vào ô `q` chung vì
+  `Appointment::scopeSearch` đã tìm theo tên/SĐT/mã bệnh nhân trong `q`; combobox tìm bệnh nhân
+  chỉ dùng ở modal tạo lịch (bắt buộc chọn đúng 1 `patient_id`).
+- Bổ sung `core/permissions.js` (`PERMISSIONS.APPOINTMENTS.*`, không có `DELETE` vì backend không
+  có endpoint xóa lịch hẹn) và `core/formatters.js` (`localDateTimeInput` cho input
+  `datetime-local`).
+- `features/appointments/status-transitions.js` mirror tay `AppointmentService::ALLOWED_TRANSITIONS`
+  (`app/Services/AppointmentService.php`) để UI chỉ hiện đúng nút chuyển trạng thái hợp lệ — cần
+  tự đồng bộ nếu backend đổi luật chuyển trạng thái.
+- Sửa 1 lỗi cú pháp PHP khi tự tích hợp (thiếu 1 dấu `]` đóng mảng `items` trong
+  `sidebar.blade.php` khi thêm mục "Lịch hẹn"), và 2 chỗ dashboard còn sót nút/label cũ trỏ vào
+  toast "sắp có FE-03/FE-04" — đã đổi thành link thật tới `/patients` và `/appointments`.
+- Self-test theo role được phép/bị từ chối: đã có sẵn và đầy đủ trong `AppointmentTest.php`
+  (`test_doctor_and_cashier_are_read_only`, `test_update_status_enforces_authentication_and_permission_matrix`,
+  `test_appointment_read_requires_authentication_and_permission`) — không phải viết thêm. Chỉ bổ
+  sung `test_appointment_index_page_is_available` vào `FrontendPageTest.php` theo đúng pattern có
+  sẵn của patients/dashboard (test này chỉ xác nhận Blade shell render, không phân biệt theo role
+  vì route web không có gate phía server — quyền chỉ ẩn/hiện ở client). Dự án chưa có công cụ
+  browser test (không có Dusk/Playwright/Vitest trong `composer.json`/`package.json`), nên hành vi
+  ẩn/hiện theo quyền ở Alpine (`canCreate`, `canUpdate`, `canUpdateStatus`, `canView`) vẫn cần
+  kiểm tra tay theo role khi QA thủ công.
+- Full backend suite: 190/199 pass; 9 fail vẫn là `AppointmentTest` do fixture ngày cố định
+  `2026-08-15` đã ở quá khứ — lỗi có sẵn từ trước, không phải regression của FE-04.
+- `npm run build` và `php artisan view:cache` (compile toàn bộ Blade) đều sạch sau khi tích hợp.
+- Sửa bug múi giờ: `createPayload`/`editPayload` từng gửi thẳng chuỗi `datetime-local` (không có
+  offset) lên API; vì `config('app.timezone')` là `UTC`, Carbon hiểu nhầm giờ nhập là giờ UTC,
+  lệch 7 tiếng so với giờ Việt Nam người dùng chọn. Sửa bằng
+  `new Date(form.scheduled_at).toISOString()` trước khi gửi để chuyển đúng sang UTC kèm `Z`.
