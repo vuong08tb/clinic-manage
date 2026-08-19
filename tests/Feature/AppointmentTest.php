@@ -406,6 +406,146 @@ class AppointmentTest extends TestCase
     }
 
     /**
+     * Verify administrators can apply every allowed appointment status transition.
+     */
+    public function test_admin_can_apply_all_allowed_status_transitions(): void
+    {
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        $transitions = [
+            [Appointment::STATUS_SCHEDULED, Appointment::STATUS_CONFIRMED],
+            [Appointment::STATUS_SCHEDULED, Appointment::STATUS_CANCELLED],
+            [Appointment::STATUS_CONFIRMED, Appointment::STATUS_COMPLETED],
+            [Appointment::STATUS_CONFIRMED, Appointment::STATUS_CANCELLED],
+        ];
+
+        foreach ($transitions as [$from, $to]) {
+            $appointment = Appointment::factory()->create(['status' => $from]);
+
+            $this->patchJson("/api/appointments/{$appointment->id}/status", [
+                'status' => $to,
+            ])->assertOk()
+                ->assertJsonPath('message', 'Appointment status updated')
+                ->assertJsonPath('data.status', $to)
+                ->assertJsonPath('data.patient.id', $appointment->patient_id)
+                ->assertJsonPath('data.doctor.user.id', $appointment->doctor->user_id);
+
+            $this->assertDatabaseHas('appointments', [
+                'id' => $appointment->id,
+                'status' => $to,
+            ]);
+        }
+    }
+
+    /**
+     * Verify every disallowed appointment status transition returns a clear error.
+     */
+    public function test_invalid_status_transitions_return_clear_validation_errors(): void
+    {
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        $invalidTransitions = [
+            Appointment::STATUS_SCHEDULED => [
+                Appointment::STATUS_SCHEDULED,
+                Appointment::STATUS_COMPLETED,
+            ],
+            Appointment::STATUS_CONFIRMED => [
+                Appointment::STATUS_SCHEDULED,
+                Appointment::STATUS_CONFIRMED,
+            ],
+            Appointment::STATUS_COMPLETED => Appointment::STATUSES,
+            Appointment::STATUS_CANCELLED => Appointment::STATUSES,
+        ];
+
+        foreach ($invalidTransitions as $from => $targets) {
+            foreach ($targets as $to) {
+                $appointment = Appointment::factory()->create(['status' => $from]);
+
+                $this->patchJson("/api/appointments/{$appointment->id}/status", [
+                    'status' => $to,
+                ])->assertUnprocessable()
+                    ->assertJsonPath(
+                        'errors.status.0',
+                        "The appointment status cannot transition from {$from} to {$to}.",
+                    );
+
+                $this->assertSame($from, $appointment->refresh()->status);
+            }
+        }
+    }
+
+    /**
+     * Verify the update status endpoint validates input and missing appointments.
+     */
+    public function test_update_status_validates_payload_and_missing_appointments(): void
+    {
+        $appointment = Appointment::factory()->create();
+
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        $this->patchJson("/api/appointments/{$appointment->id}/status", [])
+            ->assertUnprocessable()
+            ->assertJsonStructure(['errors' => ['status']]);
+
+        $this->patchJson("/api/appointments/{$appointment->id}/status", [
+            'status' => 'invalid',
+        ])->assertUnprocessable()
+            ->assertJsonPath(
+                'errors.status.0',
+                'The status must be scheduled, confirmed, cancelled, or completed.',
+            );
+
+        $this->patchJson('/api/appointments/999999/status', [
+            'status' => Appointment::STATUS_CONFIRMED,
+        ])->assertNotFound()
+            ->assertJsonPath('message', 'Resource not found.');
+
+        $this->assertSame(
+            Appointment::STATUS_SCHEDULED,
+            $appointment->refresh()->status,
+        );
+    }
+
+    /**
+     * Verify the update status endpoint enforces authentication and role permissions.
+     */
+    public function test_update_status_enforces_authentication_and_permission_matrix(): void
+    {
+        $appointment = Appointment::factory()->create();
+
+        $this->patchJson("/api/appointments/{$appointment->id}/status", [
+            'status' => Appointment::STATUS_CONFIRMED,
+        ])->assertUnauthorized()
+            ->assertJsonPath('message', 'Unauthenticated.');
+
+        Sanctum::actingAs($this->createUser('RECEPTIONIST'));
+
+        $this->patchJson("/api/appointments/{$appointment->id}/status", [
+            'status' => Appointment::STATUS_CONFIRMED,
+        ])->assertOk()
+            ->assertJsonPath('data.status', Appointment::STATUS_CONFIRMED);
+
+        foreach (['DOCTOR', 'CASHIER', 'PHARMACIST'] as $roleName) {
+            $blockedAppointment = Appointment::factory()->create();
+
+            Sanctum::actingAs($this->createUser($roleName));
+
+            $this->patchJson("/api/appointments/{$blockedAppointment->id}/status", [
+                'status' => Appointment::STATUS_CONFIRMED,
+            ])->assertForbidden()
+                ->assertJsonPath(
+                    'message',
+                    'Missing permission: APPOINTMENTS.UPDATESTATUS',
+                );
+
+            $this->assertSame(
+                Appointment::STATUS_SCHEDULED,
+                $blockedAppointment->refresh()->status,
+            );
+        }
+    }
+
+    /**
      * Verify doctor and cashier roles can read but cannot mutate appointments.
      */
     public function test_doctor_and_cashier_are_read_only(): void

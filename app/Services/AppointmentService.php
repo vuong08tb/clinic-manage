@@ -13,6 +13,24 @@ use Illuminate\Validation\ValidationException;
 class AppointmentService
 {
     /**
+     * Define valid transitions for each appointment lifecycle status.
+     *
+     * @var array<string, array<int, string>>
+     */
+    private const ALLOWED_TRANSITIONS = [
+        Appointment::STATUS_SCHEDULED => [
+            Appointment::STATUS_CONFIRMED,
+            Appointment::STATUS_CANCELLED,
+        ],
+        Appointment::STATUS_CONFIRMED => [
+            Appointment::STATUS_COMPLETED,
+            Appointment::STATUS_CANCELLED,
+        ],
+        Appointment::STATUS_COMPLETED => [],
+        Appointment::STATUS_CANCELLED => [],
+    ];
+
+    /**
      * Paginate appointments with validated filters and eager-loaded context.
      *
      * @param  array<string, mixed>  $filters
@@ -85,6 +103,33 @@ class AppointmentService
             }
 
             $lockedAppointment->update($data);
+
+            return $lockedAppointment->refresh()->load(['patient', 'doctor.user']);
+        });
+    }
+
+    /**
+     * Transition an appointment to an allowed lifecycle status.
+     */
+    public function updateStatus(Appointment $appointment, string $status): Appointment
+    {
+        return DB::transaction(function () use ($appointment, $status): Appointment {
+            $lockedAppointment = Appointment::query()
+                ->lockForUpdate()
+                ->findOrFail($appointment->getKey());
+            $allowedStatuses = self::ALLOWED_TRANSITIONS[$lockedAppointment->status] ?? [];
+
+            if (! in_array($status, $allowedStatuses, true)) {
+                throw ValidationException::withMessages([
+                    'status' => [sprintf(
+                        'The appointment status cannot transition from %s to %s.',
+                        $lockedAppointment->status,
+                        $status,
+                    )],
+                ]);
+            }
+
+            $lockedAppointment->update(['status' => $status]);
 
             return $lockedAppointment->refresh()->load(['patient', 'doctor.user']);
         });

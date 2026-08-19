@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Appointment\ListAppointmentsRequest;
 use App\Http\Requests\Appointment\StoreAppointmentRequest;
 use App\Http\Requests\Appointment\UpdateAppointmentRequest;
+use App\Http\Requests\Appointment\UpdateAppointmentStatusRequest;
 use App\Http\Resources\AppointmentResource;
 use App\Http\Responses\ApiResponse;
 use App\Models\Appointment;
@@ -74,6 +75,24 @@ class AppointmentController extends Controller
         return ApiResponse::resource(
             new AppointmentResource($updatedAppointment),
             'Appointment updated',
+        );
+    }
+
+    /**
+     * Transition an appointment to an allowed lifecycle status.
+     */
+    public function updateStatus(
+        UpdateAppointmentStatusRequest $request,
+        Appointment $appointment,
+    ): JsonResponse {
+        $updatedAppointment = $this->service->updateStatus(
+            $appointment,
+            $request->validated('status'),
+        );
+
+        return ApiResponse::resource(
+            new AppointmentResource($updatedAppointment),
+            'Appointment status updated',
         );
     }
 }
