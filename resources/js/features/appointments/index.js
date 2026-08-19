@@ -3,8 +3,11 @@ import { firstFieldError } from '../../core/form-errors';
 import {
     formatDate,
     formatTime,
+    fromClinicClock,
+    localDateInput,
     statusClasses,
     statusLabel,
+    toClinicClock,
 } from '../../core/formatters';
 import {
     calculateVisiblePages,
@@ -21,33 +24,35 @@ import {
     updateAppointmentStatus,
 } from './appointment-api';
 import {
-    appointmentToEditForm,
+    appointmentToForm,
     createPayload,
     editPayload,
-    emptyCreateForm,
+    emptyAppointmentForm,
 } from './appointment-form';
 import { allowedNextStatuses } from './status-transitions';
 
+// The week grid is built on clinic days, so the boundaries are computed against
+// the clinic wall clock rather than whatever timezone the browser happens to be in.
 function startOfWeek(date) {
-    const result = new Date(date);
-    const day = result.getDay();
+    const result = toClinicClock(date);
+    const day = result.getUTCDay();
     const diffToMonday = day === 0 ? -6 : 1 - day;
 
-    result.setHours(0, 0, 0, 0);
-    result.setDate(result.getDate() + diffToMonday);
+    result.setUTCHours(0, 0, 0, 0);
+    result.setUTCDate(result.getUTCDate() + diffToMonday);
 
-    return result;
+    return fromClinicClock(result);
 }
 
 function addDays(date, amount) {
-    const result = new Date(date);
-    result.setDate(result.getDate() + amount);
+    const result = toClinicClock(date);
+    result.setUTCDate(result.getUTCDate() + amount);
 
-    return result;
+    return fromClinicClock(result);
 }
 
 function isoDate(date) {
-    return date.toISOString().slice(0, 10);
+    return localDateInput(date);
 }
 
 const WEEKDAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
@@ -79,23 +84,23 @@ export function appointmentIndexPage() {
         weekLoading: false,
         weekError: '',
 
-        createOpen: false,
-        createForm: emptyCreateForm(),
-        createErrors: {},
-        createMessage: '',
-        creating: false,
+        formOpen: false,
+        formMode: 'create',
+        editingId: null,
+        form: emptyAppointmentForm(),
+        formErrors: {},
+        formMessage: '',
+        submitting: false,
 
         patientQuery: '',
         patientResults: [],
         patientSearching: false,
         _patientSearchRequestId: 0,
 
-        drawerOpen: false,
-        selected: null,
-        editForm: null,
-        editErrors: {},
-        editMessage: '',
-        editing: false,
+        detailOpen: false,
+        detail: null,
+        detailLoading: false,
+        detailError: '',
 
         statusTarget: null,
         updatingStatus: false,
@@ -205,6 +210,16 @@ export function appointmentIndexPage() {
                     this.refreshing = false;
                 }
             }
+        },
+
+        async reloadCurrentView() {
+            if (this.view === 'calendar') {
+                await this.loadWeek();
+
+                return;
+            }
+
+            await this.loadList();
         },
 
         async refresh() {
@@ -324,25 +339,50 @@ export function appointmentIndexPage() {
             await this.loadWeek();
         },
 
+        resetForm() {
+            this.form = emptyAppointmentForm();
+            this.formErrors = {};
+            this.formMessage = '';
+            this.editingId = null;
+            this.patientQuery = '';
+            this.patientResults = [];
+        },
+
         openCreateModal() {
             if (!this.canCreate) {
                 return;
             }
 
-            this.createForm = emptyCreateForm();
-            this.createErrors = {};
-            this.createMessage = '';
-            this.patientQuery = '';
-            this.patientResults = [];
-            this.createOpen = true;
+            this.resetForm();
+            this.formMode = 'create';
+            this.formOpen = true;
         },
 
-        closeCreateModal() {
-            if (this.creating) {
+        // Backend only accepts scheduled_at/reason updates while the appointment is still scheduled.
+        canEdit(appointment) {
+            return this.canUpdate && appointment?.status === 'scheduled';
+        },
+
+        openEditModal(appointment) {
+            if (!this.canEdit(appointment)) {
                 return;
             }
 
-            this.createOpen = false;
+            this.resetForm();
+
+            this.formMode = 'edit';
+            this.editingId = appointment.id;
+            this.form = appointmentToForm(appointment);
+            this.formOpen = true;
+        },
+
+        closeFormModal() {
+            if (this.submitting) {
+                return;
+            }
+
+            this.formOpen = false;
+            this.resetForm();
         },
 
         async searchPatients() {
@@ -377,152 +417,152 @@ export function appointmentIndexPage() {
         },
 
         selectPatient(patient) {
-            this.createForm.patient_id = patient.id;
-            this.createForm.patient_label = `${patient.full_name} (${patient.code})`;
+            this.form.patient_id = patient.id;
+            this.form.patient_label = `${patient.full_name} (${patient.code})`;
             this.patientQuery = '';
             this.patientResults = [];
         },
 
         clearSelectedPatient() {
-            this.createForm.patient_id = null;
-            this.createForm.patient_label = '';
+            this.form.patient_id = null;
+            this.form.patient_label = '';
         },
 
-        async submitCreate() {
-            if (this.creating || !this.canCreate) {
+        async submitForm() {
+            if (this.submitting) {
                 return;
             }
 
-            if (!this.createForm.patient_id || !this.createForm.doctor_id) {
-                this.createMessage = 'Vui lòng chọn bệnh nhân và bác sĩ.';
+            const editing = this.formMode === 'edit';
+            const allowed = editing ? this.canUpdate : this.canCreate;
+
+            if (!allowed) {
+                this.$store.ui.notify(
+                    'Bạn không có quyền thực hiện thao tác này.',
+                    'error',
+                );
 
                 return;
             }
 
-            this.creating = true;
-            this.createErrors = {};
-            this.createMessage = '';
+            if (!editing && (!this.form.patient_id || !this.form.doctor_id)) {
+                this.formMessage = 'Vui lòng chọn bệnh nhân và bác sĩ.';
+
+                return;
+            }
+
+            this.submitting = true;
+            this.formErrors = {};
+            this.formMessage = '';
 
             try {
-                await createAppointment(createPayload(this.createForm));
-
-                this.$store.ui.notify('Tạo lịch hẹn thành công.', 'success');
-
-                this.createOpen = false;
-                this.filters.page = 1;
-
-                if (this.view === 'calendar') {
-                    await this.loadWeek();
+                if (editing) {
+                    await updateAppointment(
+                        this.editingId,
+                        editPayload(this.form),
+                    );
                 } else {
-                    await this.loadList();
+                    await createAppointment(createPayload(this.form));
                 }
+
+                this.$store.ui.notify(
+                    editing
+                        ? 'Cập nhật lịch hẹn thành công.'
+                        : 'Tạo lịch hẹn thành công.',
+                    'success',
+                );
+
+                this.formOpen = false;
+                this.resetForm();
+
+                if (!editing) {
+                    this.filters.page = 1;
+                }
+
+                await this.reloadCurrentView();
             } catch (error) {
                 if (error instanceof ApiError) {
-                    this.createErrors = error.errors ?? {};
-
-                    if (error.status === 403) {
-                        this.createMessage = 'Bạn không có quyền thực hiện thao tác này.';
-                    } else {
-                        this.createMessage = error.message;
-                    }
+                    this.formErrors = error.errors ?? {};
+                    this.formMessage = error.status === 403
+                        ? 'Bạn không có quyền thực hiện thao tác này.'
+                        : error.message;
                 } else {
-                    this.createMessage = 'Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.';
+                    this.formMessage = 'Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.';
                 }
             } finally {
-                this.creating = false;
+                this.submitting = false;
             }
         },
 
-        createFieldError(field) {
-            return firstFieldError(this.createErrors, field);
+        fieldError(field) {
+            return firstFieldError(this.formErrors, field);
         },
 
-        async openDetail(appointment) {
+        async openDetailModal(appointment) {
             if (!this.canView) {
                 return;
             }
 
-            this.drawerOpen = true;
-            this.editErrors = {};
-            this.editMessage = '';
+            this.detailOpen = true;
+            this.detailError = '';
+            this.detailLoading = true;
+
+            // Show the row data immediately, then replace it with the full record.
+            this.detail = appointment;
 
             try {
                 const response = await getAppointment(appointment.id);
 
-                this.selected = response.data;
-            } catch {
-                this.selected = appointment;
-            }
-
-            this.editForm = this.selected.status === 'scheduled' && this.canUpdate
-                ? appointmentToEditForm(this.selected)
-                : null;
-        },
-
-        closeDrawer() {
-            if (this.editing || this.updatingStatus) {
-                return;
-            }
-
-            this.drawerOpen = false;
-            this.selected = null;
-            this.editForm = null;
-            this.statusTarget = null;
-        },
-
-        async submitEdit() {
-            if (this.editing || !this.editForm || !this.selected) {
-                return;
-            }
-
-            this.editing = true;
-            this.editErrors = {};
-            this.editMessage = '';
-
-            try {
-                const response = await updateAppointment(
-                    this.selected.id,
-                    editPayload(this.editForm),
-                );
-
-                this.selected = response.data;
-                this.editForm = appointmentToEditForm(this.selected);
-
-                this.$store.ui.notify('Cập nhật lịch hẹn thành công.', 'success');
-
-                if (this.view === 'calendar') {
-                    await this.loadWeek();
-                } else {
-                    await this.loadList();
-                }
+                this.detail = response.data;
             } catch (error) {
-                if (error instanceof ApiError) {
-                    this.editErrors = error.errors ?? {};
-                    this.editMessage = error.status === 403
-                        ? 'Bạn không có quyền thực hiện thao tác này.'
-                        : error.message;
+                if (error instanceof ApiError && error.status === 404) {
+                    this.detailError = 'Không tìm thấy lịch hẹn.';
+                } else if (error instanceof ApiError && error.status === 403) {
+                    this.detailError = 'Bạn không có quyền xem lịch hẹn này.';
                 } else {
-                    this.editMessage = 'Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.';
+                    this.detailError = error.message ?? 'Không thể tải lịch hẹn.';
                 }
             } finally {
-                this.editing = false;
+                this.detailLoading = false;
             }
         },
 
-        editFieldError(field) {
-            return firstFieldError(this.editErrors, field);
+        closeDetailModal() {
+            this.detailOpen = false;
+            this.detail = null;
+            this.detailError = '';
+        },
+
+        editFromDetail() {
+            const appointment = this.detail;
+
+            if (!appointment) {
+                return;
+            }
+
+            this.closeDetailModal();
+            this.openEditModal(appointment);
         },
 
         allowedNextStatuses(status) {
             return allowedNextStatuses(status);
         },
 
-        askStatusChange(status) {
+        // Status buttons live in the list row, so the permission check happens here.
+        statusActions(appointment) {
             if (!this.canUpdateStatus) {
+                return [];
+            }
+
+            return allowedNextStatuses(appointment?.status);
+        },
+
+        askStatusChange(appointment, status) {
+            if (!this.canUpdateStatus || !appointment) {
                 return;
             }
 
-            this.statusTarget = status;
+            this.statusTarget = { appointment, status };
         },
 
         cancelStatusChange() {
@@ -534,28 +574,29 @@ export function appointmentIndexPage() {
         },
 
         async confirmStatusChange() {
-            if (!this.statusTarget || this.updatingStatus || !this.selected) {
+            if (!this.statusTarget || this.updatingStatus) {
                 return;
             }
+
+            const { appointment, status } = this.statusTarget;
 
             this.updatingStatus = true;
 
             try {
                 const response = await updateAppointmentStatus(
-                    this.selected.id,
-                    this.statusTarget,
+                    appointment.id,
+                    status,
                 );
 
-                this.selected = response.data;
+                if (this.detail?.id === appointment.id) {
+                    this.detail = response.data;
+                }
+
                 this.statusTarget = null;
 
                 this.$store.ui.notify('Cập nhật trạng thái thành công.', 'success');
 
-                if (this.view === 'calendar') {
-                    await this.loadWeek();
-                } else {
-                    await this.loadList();
-                }
+                await this.reloadCurrentView();
             } catch (error) {
                 this.$store.ui.notify(
                     error.message ?? 'Không thể cập nhật trạng thái.',
@@ -563,6 +604,28 @@ export function appointmentIndexPage() {
                 );
             } finally {
                 this.updatingStatus = false;
+            }
+        },
+
+        examinationCreateUrl(appointment) {
+            return `/examinations?appointment_id=${appointment?.id}`;
+        },
+
+        handleEscape() {
+            if (this.statusTarget) {
+                this.cancelStatusChange();
+
+                return;
+            }
+
+            if (this.formOpen) {
+                this.closeFormModal();
+
+                return;
+            }
+
+            if (this.detailOpen) {
+                this.closeDetailModal();
             }
         },
 

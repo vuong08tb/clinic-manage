@@ -211,3 +211,27 @@ Toàn bộ comment phải sử dụng **tiếng Anh**, ngắn gọn, rõ ràng v
 
 ### Phạm vi comment
 Method, Controller, Service, Class, Constructor
+
+---
+
+## 11. Timezone: luôn dùng `timestamptz`
+
+DB chạy ở `Asia/Ho_Chi_Minh` (xem [skills/docker.md mục 9](./docker.md#9-timezone-utc7)). Quy ước cột thời gian:
+
+| Loại dữ liệu | Kiểu cột | Blueprint |
+|---|---|---|
+| Mốc thời gian thật (`scheduled_at`, `examined_at`, `issued_at`, `paid_at`, `created_at`, `deleted_at`, ...) | `timestamptz` | `$table->timestampTz(...)`, `$table->timestampsTz()`, `$table->softDeletesTz()` |
+| Ngày lịch thuần, không gắn giờ (`date_of_birth`) | `date` | `$table->date(...)` |
+
+**Tại sao `timestamptz`:** `timestamp` (không timezone) lưu wall-clock trần — cùng một giá trị đọc ra sẽ mang nghĩa khác nhau tùy timezone của session, và không có cách nào biết nó được ghi ở múi nào. `timestamptz` lưu mốc tuyệt đối, Postgres tự trả về theo timezone session (+07).
+
+Migration `2026_08_19_000000_convert_timestamps_to_timestamptz` đã quét `information_schema` và đổi toàn bộ cột `timestamp without time zone` sang `timestamptz`, diễn giải dữ liệu cũ là UTC (đúng với thời điểm app còn chạy `APP_TIMEZONE=UTC`).
+
+> Migration này chạy **sau cùng** nên `migrate:fresh` vẫn ra schema đúng dù các migration cũ còn khai báo `timestamps()`. Nhưng **migration mới phải dùng `timestampTz`/`timestampsTz`** — nếu không, cột sẽ lọt lưới.
+
+### Checklist khi thêm cột thời gian
+
+- [ ] Dùng `timestampTz`/`timestampsTz`/`softDeletesTz`, không dùng `timestamp`/`timestamps`.
+- [ ] Cast `'datetime'` trong Model → Carbon tự về `Asia/Ho_Chi_Minh`.
+- [ ] API Resource trả `->toISOString()` (UTC, có `Z`) — frontend tự render sang giờ VN.
+- [ ] Filter theo ngày dùng `whereDate` + `today()`; cả hai đã ở +07.
