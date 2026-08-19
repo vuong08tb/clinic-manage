@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Appointment;
 
+use App\Constants\AppointmentMessage;
 use App\Models\Appointment;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -43,7 +44,7 @@ class UpdateAppointmentStatusRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'status.in' => 'The status must be scheduled, confirmed, cancelled, or completed.',
+            'status.in' => AppointmentMessage::INVALID_STATUS,
         ];
     }
 }

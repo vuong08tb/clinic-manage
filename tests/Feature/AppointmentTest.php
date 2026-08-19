@@ -337,6 +337,207 @@ class AppointmentTest extends TestCase
     }
 
     /**
+     * Verify creating an appointment rejects any overlap with an existing 30-minute slot for the same doctor.
+     */
+    public function test_create_rejects_overlapping_appointment_for_same_doctor(): void
+    {
+        $doctor = Doctor::factory()->create();
+        Appointment::factory()->create([
+            'doctor_id' => $doctor->id,
+            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        foreach (['2026-08-15T08:31:00+07:00', '2026-08-15T09:15:00+07:00', '2026-08-15T09:29:00+07:00'] as $overlapping) {
+            $patient = Patient::factory()->create();
+
+            $this->postJson('/api/appointments', $this->appointmentData($patient, $doctor, [
+                'scheduled_at' => $overlapping,
+            ]))->assertUnprocessable()
+                ->assertJsonPath(
+                    'errors.scheduled_at.0',
+                    'The doctor already has an appointment overlapping this 30-minute time slot.',
+                );
+
+            $this->assertDatabaseMissing('appointments', [
+                'doctor_id' => $doctor->id,
+                'patient_id' => $patient->id,
+            ]);
+        }
+    }
+
+    /**
+     * Verify adjacent 30-minute slots at the exact boundary do not conflict.
+     */
+    public function test_create_allows_adjacent_boundary_slots(): void
+    {
+        $doctor = Doctor::factory()->create();
+        Appointment::factory()->create([
+            'doctor_id' => $doctor->id,
+            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        foreach (['2026-08-15T08:30:00+07:00', '2026-08-15T09:30:00+07:00'] as $boundary) {
+            $this->postJson('/api/appointments', $this->appointmentData(
+                Patient::factory()->create(),
+                $doctor,
+                ['scheduled_at' => $boundary],
+            ))->assertCreated();
+        }
+    }
+
+    /**
+     * Verify a cancelled appointment does not block a new appointment in the same slot.
+     */
+    public function test_create_ignores_cancelled_appointment_when_checking_conflict(): void
+    {
+        $doctor = Doctor::factory()->create();
+        Appointment::factory()->create([
+            'doctor_id' => $doctor->id,
+            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'status' => Appointment::STATUS_CANCELLED,
+        ]);
+
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        $this->postJson('/api/appointments', $this->appointmentData(
+            Patient::factory()->create(),
+            $doctor,
+            ['scheduled_at' => '2026-08-15T09:00:00+07:00'],
+        ))->assertCreated();
+    }
+
+    /**
+     * Verify a completed appointment still blocks a new appointment in the same slot.
+     */
+    public function test_create_treats_completed_appointment_as_conflicting(): void
+    {
+        $doctor = Doctor::factory()->create();
+        Appointment::factory()->create([
+            'doctor_id' => $doctor->id,
+            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'status' => Appointment::STATUS_COMPLETED,
+        ]);
+
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        $this->postJson('/api/appointments', $this->appointmentData(
+            Patient::factory()->create(),
+            $doctor,
+            ['scheduled_at' => '2026-08-15T09:00:00+07:00'],
+        ))->assertUnprocessable()
+            ->assertJsonPath(
+                'errors.scheduled_at.0',
+                'The doctor already has an appointment overlapping this 30-minute time slot.',
+            );
+    }
+
+    /**
+     * Verify the same time slot is allowed for two different doctors.
+     */
+    public function test_create_allows_same_time_slot_for_different_doctor(): void
+    {
+        $doctor = Doctor::factory()->create();
+        $otherDoctor = Doctor::factory()->create();
+        Appointment::factory()->create([
+            'doctor_id' => $doctor->id,
+            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        $this->postJson('/api/appointments', $this->appointmentData(
+            Patient::factory()->create(),
+            $otherDoctor,
+            ['scheduled_at' => '2026-08-15T09:00:00+07:00'],
+        ))->assertCreated();
+    }
+
+    /**
+     * Verify rescheduling an appointment onto another appointment's slot for the same doctor is rejected.
+     */
+    public function test_update_rejects_overlap_with_another_appointment_of_same_doctor(): void
+    {
+        $doctor = Doctor::factory()->create();
+        Appointment::factory()->create([
+            'doctor_id' => $doctor->id,
+            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+        $appointment = Appointment::factory()->create([
+            'doctor_id' => $doctor->id,
+            'scheduled_at' => '2026-08-16T09:00:00+07:00',
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+        $originalScheduledAt = $appointment->scheduled_at;
+
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        $this->patchJson("/api/appointments/{$appointment->id}", [
+            'scheduled_at' => '2026-08-15T09:15:00+07:00',
+        ])->assertUnprocessable()
+            ->assertJsonPath(
+                'errors.scheduled_at.0',
+                'The doctor already has an appointment overlapping this 30-minute time slot.',
+            );
+
+        $this->assertTrue($appointment->refresh()->scheduled_at->equalTo($originalScheduledAt));
+    }
+
+    /**
+     * Verify updating an appointment does not treat itself as a conflicting appointment.
+     */
+    public function test_update_excludes_itself_from_conflict_check(): void
+    {
+        $doctor = Doctor::factory()->create();
+        $appointment = Appointment::factory()->create([
+            'doctor_id' => $doctor->id,
+            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+        $originalScheduledAt = $appointment->scheduled_at;
+
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        $this->patchJson("/api/appointments/{$appointment->id}", [
+            'scheduled_at' => '2026-08-15T09:15:00+07:00',
+        ])->assertOk();
+
+        $this->assertFalse($appointment->refresh()->scheduled_at->equalTo($originalScheduledAt));
+    }
+
+    /**
+     * Verify updating only the reason does not trigger the conflict check.
+     */
+    public function test_update_reason_only_does_not_trigger_conflict_check(): void
+    {
+        $doctor = Doctor::factory()->create();
+        Appointment::factory()->create([
+            'doctor_id' => $doctor->id,
+            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+        $appointment = Appointment::factory()->create([
+            'doctor_id' => $doctor->id,
+            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        $this->patchJson("/api/appointments/{$appointment->id}", [
+            'reason' => 'Updated reason only',
+        ])->assertOk()
+            ->assertJsonPath('data.reason', 'Updated reason only');
+    }
+
+    /**
      * Verify update accepts only scheduling fields and requires a non-empty payload.
      */
     public function test_update_rejects_immutable_fields_and_empty_payloads(): void
