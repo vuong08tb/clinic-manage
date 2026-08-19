@@ -262,11 +262,13 @@ Mục tiêu: dashboard role-aware, không gọi endpoint người dùng không c
 
 ### FE-05 — Phiếu khám
 
-- [ ] Danh sách phiếu khám có filter/pagination.
-- [ ] Trang tạo khám từ lịch đã confirmed.
-- [ ] Trang xem/sửa phiếu khám.
-- [ ] Tách section triệu chứng, chẩn đoán, kết luận và ghi chú.
-- [ ] Bảo vệ hành động theo `EXAMINATIONS.*`.
+- [x] Danh sách phiếu khám có filter/pagination.
+- [x] Trang tạo khám từ lịch đã confirmed.
+- [x] Trang xem/sửa phiếu khám.
+- [-] Tách section triệu chứng, chẩn đoán, kết luận và ghi chú — backend chỉ có 2 field
+      `diagnosis`/`notes`, không có cột `symptoms`/`conclusion`; đã làm đúng theo dữ liệu thật
+      (2 section: Chẩn đoán, Ghi chú). Cần thêm migration nếu muốn tách đủ 4 section như tên gọi.
+- [x] Bảo vệ hành động theo `EXAMINATIONS.*`.
 
 ### FE-06 — Toa thuốc
 
@@ -411,3 +413,30 @@ lấy `meta.total`; không phát request dẫn tới `403`.
   offset) lên API; vì `config('app.timezone')` là `UTC`, Carbon hiểu nhầm giờ nhập là giờ UTC,
   lệch 7 tiếng so với giờ Việt Nam người dùng chọn. Sửa bằng
   `new Date(form.scheduled_at).toISOString()` trước khi gửi để chuyển đúng sang UTC kèm `Z`.
+
+### 2026-08-19 — FE-05 (Phiếu khám) và fix lỗ hổng phân quyền chéo bác sĩ
+
+- Hoàn thiện FE-05: danh sách có filter theo bác sĩ (dropdown) và bệnh nhân (combobox tìm kiếm,
+  API examinations không có `q` nên không gộp được như appointments), trang tạo phiếu khám riêng
+  (`/examinations/create`, chọn lịch hẹn `confirmed` qua combobox hoặc pre-fill bằng
+  `?appointment_id=`), trang xem/sửa riêng (`/examinations/{id}`), action theo `EXAMINATIONS.*`.
+- Backend chỉ có 2 field nội dung (`diagnosis`, `notes`) — không có `symptoms`/`conclusion` như
+  tên gọi checklist yêu cầu; đã làm đúng theo dữ liệu thật, xem chi tiết ở dòng checklist FE-05.
+- Thêm link "Tạo phiếu khám" trong drawer chi tiết lịch hẹn (trang Appointments), chỉ hiện khi
+  lịch đang `confirmed` và có quyền `EXAMINATIONS.CREATE` — đóng luồng "quy trình khám bắt đầu từ
+  lịch hẹn đã xác nhận" mà thiết kế ban đầu mô tả nhưng bị bỏ sót khi giao code lần đầu.
+- **Phát hiện lỗ hổng bảo mật thật** (đã kiểm chứng bằng test, không chỉ đọc code): bất kỳ
+  tài khoản có role DOCTOR nào cũng tạo/sửa được phiếu khám của bác sĩ khác — middleware
+  `EnsurePermission` chỉ check permission theo role, không check dữ liệu có thuộc về người thao
+  tác không. Chi tiết đầy đủ (nguyên nhân, cách phát hiện, code fix, cách tự kiểm tra) ở
+  `docs/fixExamination.md`. Đã thử áp dụng fix và kiểm chứng hoạt động đúng (bác sĩ khác bị chặn
+  tạo/sửa, bác sĩ sở hữu và ADMIN vẫn hoạt động bình thường), nhưng **đã revert lại theo yêu cầu
+  — chưa muốn sửa vào lúc này**. Code hiện tại vẫn còn lỗ hổng này, cách sửa đã có sẵn trong
+  `fixExamination.md`, áp dụng lại khi nào sẵn sàng.
+- Self-test: thêm `test_examination_index_page_is_available`,
+  `test_examination_create_page_is_available`, `test_examination_detail_page_is_available` vào
+  `FrontendPageTest.php`. `ExaminationTest.php` (có sẵn, không phải viết mới) đã đủ RBAC theo
+  role được phép/bị từ chối cho examinations.
+- Full backend suite: 191/200 pass; 9 fail vẫn là `AppointmentTest` do fixture ngày cố định, có
+  sẵn từ trước, không liên quan FE-05.
+- `npm run build` sạch sau khi thêm link "Tạo phiếu khám".

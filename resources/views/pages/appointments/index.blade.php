@@ -384,6 +384,13 @@
                         x-bind:class="statusClasses(selected?.status)" x-text="statusLabel(selected?.status)"></span>
                 </div>
 
+                <a x-show="selected?.status === 'confirmed' && canCreateExamination"
+                    x-bind:href="`/examinations/create?appointment_id=${selected?.id}`"
+                    class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">
+                    <x-ui.icon name="examination" class="h-4 w-4" />
+                    Tạo phiếu khám
+                </a>
+
                 {{-- Status transition actions --}}
                 <div x-show="canUpdateStatus && allowedNextStatuses(selected?.status).length > 0"
                     class="flex flex-wrap gap-2">

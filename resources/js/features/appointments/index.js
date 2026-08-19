@@ -116,6 +116,10 @@ export function appointmentIndexPage() {
             return this.$store.auth.can(PERMISSIONS.APPOINTMENTS.FINDONE);
         },
 
+        get canCreateExamination() {
+            return this.$store.auth.can(PERMISSIONS.EXAMINATIONS.CREATE);
+        },
+
         get visiblePages() {
             return calculateVisiblePages(this.meta);
         },
