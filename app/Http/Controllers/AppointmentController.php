@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Constants\AppointmentMessage;
 use App\Http\Requests\Appointment\ListAppointmentsRequest;
 use App\Http\Requests\Appointment\StoreAppointmentRequest;
 use App\Http\Requests\Appointment\UpdateAppointmentRequest;
@@ -11,6 +12,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\Appointment;
 use App\Services\AppointmentService;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Expose permission-protected appointment endpoints.
@@ -31,7 +33,8 @@ class AppointmentController extends Controller
 
         return ApiResponse::paginated(
             AppointmentResource::collection($appointments),
-            'Appointments retrieved',
+            AppointmentMessage::LIST_RETRIEVED,
+            Response::HTTP_OK,
         );
     }
 
@@ -44,8 +47,8 @@ class AppointmentController extends Controller
 
         return ApiResponse::resource(
             new AppointmentResource($appointment),
-            'Appointment created',
-            201,
+            AppointmentMessage::CREATED,
+            Response::HTTP_CREATED,
         );
     }
 
@@ -56,7 +59,8 @@ class AppointmentController extends Controller
     {
         return ApiResponse::resource(
             new AppointmentResource($this->service->load($appointment)),
-            'Appointment retrieved',
+            AppointmentMessage::RETRIEVED,
+            Response::HTTP_OK,
         );
     }
 
@@ -74,7 +78,8 @@ class AppointmentController extends Controller
 
         return ApiResponse::resource(
             new AppointmentResource($updatedAppointment),
-            'Appointment updated',
+            AppointmentMessage::UPDATED,
+            Response::HTTP_OK,
         );
     }
 
@@ -92,7 +97,8 @@ class AppointmentController extends Controller
 
         return ApiResponse::resource(
             new AppointmentResource($updatedAppointment),
-            'Appointment status updated',
+            AppointmentMessage::STATUS_UPDATED,
+            Response::HTTP_OK,
         );
     }
 }
