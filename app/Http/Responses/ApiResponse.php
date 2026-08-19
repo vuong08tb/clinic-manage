@@ -16,7 +16,7 @@ final class ApiResponse
     /**
      * Return a successful response for raw, non-model payloads.
      */
-    public static function success(
+    public static function success( 
         mixed $data = null,
         string $message = 'OK',
         int $status = Response::HTTP_OK,

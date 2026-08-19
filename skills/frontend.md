@@ -1,162 +1,178 @@
-# Skill: Frontend (Blade + Vite + Alpine — tiêu thụ Clinic API)
+# Skill: Frontend Blade + Vite + Alpine cho Clinic API
 
-Playbook làm frontend tối giản **cùng repo Laravel**, tiêu thụ REST API bằng **Bearer token** (Sanctum). Đây là phần mở rộng ngoài đề gốc — API vẫn là sản phẩm chính. Quyết định: Blade khung trang + Vite + Alpine.js gọi `/api/*`, **không tách source**.
+Playbook triển khai frontend cùng repository Laravel, tiêu thụ REST API `/api/*` bằng Alpine.js.
+Kế hoạch task và checklist theo dõi nằm tại
+[`docs/trien-khai-frontend.md`](../docs/trien-khai-frontend.md).
 
----
+## 1. Kiến trúc bắt buộc
 
-## 1. Vì sao Blade chung repo (không tách SPA riêng)
+- Blade render layout, page shell và reusable UI component.
+- Alpine controller quản lý trạng thái của từng feature/page.
+- Mọi request đi qua `resources/js/core/api-client.js`.
+- Không gọi `fetch()` và không viết business rule trực tiếp trong Blade.
+- Auth/UI shell có thể dùng Alpine store; dữ liệu CRUD phải nằm trong feature controller.
+- Backend quyết định validation, permission và chuyển trạng thái; frontend chỉ tối ưu UX.
 
-- API auth bằng **Sanctum API token**; frontend chỉ cần lưu token và gắn header `Authorization: Bearer`.
-- Cùng repo → **không CORS**, không container thứ 3, tái dùng đúng API đang chấm.
-- Vẫn dùng được Vite/Alpine (hoặc Vue/React sau này) trong `resources/js` nếu muốn nâng cấp.
-
-Sơ đồ:
-```
-Blade view (vỏ trang)  ──Vite──►  resources/js (Alpine + fetch)
-        │                                  │
-        └── render khung, data-* attrs     └── fetch /api/* kèm Bearer token (localStorage)
-                                                   │
-                                                   ▼
-                                            Clinic REST API (Sanctum)
+```text
+Blade page -> Alpine feature -> API client -> /api/* -> Laravel service/resource
 ```
 
----
+## 2. Cấu trúc chuẩn
 
-## 2. Luồng auth phía client
+```text
+resources/
+|-- views/
+|   |-- layouts/                 # guest/app shell
+|   |-- components/
+|   |   |-- layout/              # sidebar, topbar, page-header
+|   |   |-- ui/                  # button, badge, modal, drawer, table...
+|   |   `-- form/                # field, error
+|   `-- pages/<feature>/         # page Blade theo nghiệp vụ
+|-- js/
+|   |-- core/                    # API/error/auth storage/formatter
+|   |-- stores/                  # chỉ auth và UI shell
+|   `-- features/<feature>/      # Alpine controller theo feature
+`-- css/app.css
+```
+
+Tên view dùng `pages.<feature>.<page>`, ví dụ `pages.auth.login` và
+`pages.dashboard.index`.
+
+## 3. API client và response envelope
+
+API trả một trong hai dạng:
 
 ```js
-// resources/js/api.js
-const BASE = '/api';
-
-export async function login(email, password) {
-  const res = await fetch(`${BASE}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const json = await res.json();
-  if (!json.success) throw json;               // { success:false, message, errors }
-  localStorage.setItem('token', json.data.token);
-  localStorage.setItem('permissions', JSON.stringify(json.data.user.permissions ?? []));
-  return json.data.user;
-}
-
-export async function api(path, options = {}) {
-  const token = localStorage.getItem('token');
-  const res = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
-  if (res.status === 401) { localStorage.clear(); location.href = '/login'; return; }
-  return res.json();
-}
-
-export function logout() {
-  return api('/logout', { method: 'POST' }).finally(() => { localStorage.clear(); location.href = '/login'; });
-}
+{ success: true, message: '...', data: {}, meta: {} }
+{ success: false, message: '...', errors: {} }
 ```
 
----
+API client phải:
 
-## 3. Xử lý envelope & lỗi
+- gửi `Accept: application/json`;
+- gửi `Content-Type: application/json` khi có body;
+- gắn `Authorization: Bearer <token>` khi có token;
+- parse JSON an toàn, kể cả response không có body;
+- ném `ApiError` chứa `status`, `message`, `errors` và payload;
+- phát sự kiện unauthorized khi gặp `401` để auth store xóa phiên và về `/login`.
 
-Mọi response theo envelope `success/message/data/errors`:
+Xử lý UX chuẩn:
 
-```js
-const res = await api('/patients', {
-  method: 'POST',
-  body: JSON.stringify(form),
-});
-if (!res.success) {
-  // 422 → res.errors = { field: [msg] }
-  showFieldErrors(res.errors);
-  showToast(res.message);
-} else {
-  // 201 → res.data
-}
-```
-
-Map HTTP status → UX:
-| Status | Xử lý UI |
+| HTTP | Xử lý |
 |---|---|
-| 401 | về `/login`, xóa token |
-| 403 | thông báo "Không đủ quyền" |
-| 404 | trang/thực thể không tồn tại |
-| 422 | hiển thị lỗi theo field từ `errors` |
+| 401 | Xóa token/local auth và chuyển `/login` |
+| 403 | Toast "Bạn không có quyền thực hiện thao tác này" |
+| 404 | Empty/not-found state phù hợp context |
+| 422 | Hiển thị lỗi theo field và summary message |
+| 500/network | Error state có nút thử lại |
 
----
+## 4. Auth và RBAC
 
-## 4. Ẩn/hiện theo permission
+Luồng hiện tại dùng Sanctum personal access token:
 
-Backend là nơi enforce thật; frontend chỉ ẩn/hiện cho gọn UX. Dùng `permissions` lấy từ `/api/me`:
-
-```html
-<button x-data x-show="$store.auth.can('INVOICES.CREATE')">Tạo hóa đơn</button>
-```
-```js
-Alpine.store('auth', {
-  permissions: JSON.parse(localStorage.getItem('permissions') || '[]'),
-  can(p) { return this.permissions.includes(p); },
-});
-```
-
----
-
-## 5. Cấu trúc trang gợi ý (Blade + web.php)
-
-```
-routes/web.php:
-  GET /login              → view('auth.login')
-  GET /                   → view('dashboard')   (đọc /api/stats)
-  GET /patients           → view('patients.index')
-  GET /appointments       → view('appointments.index')
-  GET /invoices           → view('invoices.index')
-
-resources/views/
-  layouts/app.blade.php    (khung + @vite)
-  auth/login.blade.php
-  dashboard.blade.php
-  patients/index.blade.php
-```
-
-- Blade chỉ render "vỏ" + mount điểm Alpine; dữ liệu nạp qua `fetch` từ API.
-- `@vite(['resources/js/app.js'])` để bundle Alpine + api.js.
-
-Trang demo tối thiểu để đạt T4.8: **login → dashboard (stats) → danh sách bệnh nhân/lịch/hóa đơn** (read).
-
----
-
-## 6. Vite/Alpine setup
+1. `POST /api/login` nhận email/password.
+2. Lưu token với key có namespace, không dùng key chung như `token`.
+3. `GET /api/me` khôi phục user, role và permissions.
+4. Mọi trang authenticated gọi auth bootstrap trước khi hiển thị shell.
+5. `POST /api/logout`, sau đó luôn xóa local auth state.
 
 ```js
-// resources/js/app.js
-import Alpine from 'alpinejs';
-import './api.js';
-window.Alpine = Alpine;
-Alpine.start();
+Alpine.store('auth').can('INVOICES.CREATE');
+Alpine.store('auth').canAny(['PATIENTS.FINDALL', 'APPOINTMENTS.FINDALL']);
 ```
 
-`npm install alpinejs`; `npm run dev` (hoặc `npm run build`) — đã có Vite trong skeleton.
+Frontend chỉ ẩn/disable hành động cho UX; middleware backend vẫn enforce thật.
 
----
+> Production hardening: token đang được lưu phía client để tương thích API hiện tại. Trước khi
+> production cần ưu tiên Sanctum stateful cookie/HttpOnly hoặc chốt CSP, expiration và token
+> revocation policy. Không xem `localStorage` là giải pháp bảo mật cuối cùng.
 
-## 7. Checklist frontend trước PR
+## 5. UI đã chốt
 
-- [ ] Login lưu token, gắn Bearer cho mọi request.
-- [ ] 401 tự đăng xuất về `/login`.
-- [ ] Hiển thị lỗi 422 theo field từ `errors`.
-- [ ] Ẩn/hiện nút theo permission (UX), backend vẫn enforce.
-- [ ] Demo đọc được 1 luồng (stats + danh sách).
-- [ ] Không hard-code token/secret trong JS.
+- App shell: Clinical — sidebar sáng 240px, topbar 64px, content rõ và thoáng.
+- Table: Operations — filter rõ, mật độ vừa/cao, sticky header, pagination server-side.
+- Appointment: bổ sung chế độ calendar week theo Modern ở task lịch hẹn.
+- Primary color blue, accent teal, neutral slate.
+- KPI grid 4/2/1 cột theo desktop/tablet/mobile.
+- Drawer cho CRUD vừa; modal cho confirm/form ngắn; trang riêng cho khám và kê toa.
+- Button/icon/modal phải có focus state, disabled/loading state và aria label phù hợp.
 
-## 8. Comment code 
+Sidebar chia theo workflow:
 
-- Sinh comment code theo chuẩn chuyên nghiệp dành cho PHP/Laravel, tuân theo PSR-12 và phong cách của các dự án doanh nghiệp.
-- Comment song ngữ tiếng việt và tiếng anh như sau
-- Comment sử dụng **tiếng Anh**, ngắn gọn, rõ ràng và mang tính kỹ thuật. Đặt phía trước comment tiếng việt
-- Comment sử dung **tiếng việt**, ngược lại cần đầy đủ mô tả chi tiết để đọc hiểu 
+```text
+Tổng quan -> Dashboard
+Tiếp đón -> Bệnh nhân, Lịch hẹn
+Khám bệnh -> Phiếu khám, Toa thuốc
+Dược -> Kho thuốc
+Tài chính -> Hóa đơn, Thanh toán
+Danh mục -> Chuyên khoa, Bác sĩ
+Hệ thống -> Người dùng
+```
+
+## 6. Convention cho feature controller
+
+Một page chỉ có một controller chính:
+
+```js
+export function patientIndex() {
+    return {
+        rows: [],
+        loading: true,
+        errors: {},
+        filters: { q: '', page: 1, per_page: 15 },
+
+        async init() {},
+        async load() {},
+        async submit() {},
+        resetForm() {},
+    };
+}
+```
+
+Quy tắc:
+
+- Không dùng một global store cho tất cả feature.
+- Request mới phải reset lỗi liên quan; đóng drawer/modal phải reset form state.
+- Chống double-submit bằng `submitting`.
+- Search dùng debounce; pagination/filter do backend xử lý.
+- Formatter ngày/tiền/status đặt trong `core`, không lặp giữa feature.
+
+## 7. Dashboard trước khi có `/api/stats`
+
+Backend hiện chưa có route `/api/stats`. Bản dashboard đầu tiên:
+
+- chọn KPI theo permission;
+- gọi list endpoint với `per_page=1` và dùng `meta.total`;
+- lấy lịch hôm nay từ `/api/appointments?date=YYYY-MM-DD`;
+- không gọi endpoint user không có permission;
+- cho phép từng widget lỗi độc lập thay vì làm hỏng cả dashboard.
+
+Khi `/api/stats` được triển khai, thay data source trong feature dashboard; Blade component không
+cần đổi.
+
+## 8. Quy tắc chọn modal/drawer/page
+
+- Popover: menu hàng, filter nhỏ, user menu.
+- Confirm modal: xóa, hủy, đổi trạng thái nhạy cảm.
+- Form modal: tối đa khoảng 5 field.
+- Drawer: bệnh nhân, lịch/hóa đơn quick view, điều chỉnh tồn kho.
+- Full page: khám bệnh, kê toa, chi tiết bệnh nhân và thanh toán.
+
+## 9. Checklist trước khi hoàn thành task
+
+- [ ] Route web và Blade page đúng convention.
+- [ ] JavaScript nằm trong feature controller, không inline trong Blade.
+- [ ] Mọi API call đi qua API client.
+- [ ] Permission áp dụng cho menu và action.
+- [ ] Có loading, empty, error, success feedback.
+- [ ] Xử lý đúng `401`, `403`, `422`.
+- [ ] Có disabled/loading để chống submit lặp.
+- [ ] Responsive và keyboard navigation cơ bản.
+- [ ] `npm run build` thành công.
+- [ ] Cập nhật checklist trong `docs/trien-khai-frontend.md`.
+
+## 10. Comment code
+
+- Comment bằng tiếng Anh, ngắn gọn, giải thích lý do hoặc constraint kỹ thuật.
+- Không comment lại điều code đã thể hiện rõ.
+- PHP tuân thủ PSR-12; JavaScript dùng module ES và tên hàm thể hiện nghiệp vụ.
