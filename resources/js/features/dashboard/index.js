@@ -7,13 +7,14 @@ import {
     statusClasses,
     statusLabel,
 } from '../../core/formatters';
+import { PERMISSIONS } from '../../core/permissions';
 
 const WIDGETS = [
     {
         key: 'patients',
         label: 'Bệnh nhân',
         caption: 'Tổng hồ sơ',
-        permission: 'PATIENTS.FINDALL',
+        permission: PERMISSIONS.PATIENTS.FINDALL,
         endpoint: '/patients?per_page=1',
         tone: 'blue',
     },
@@ -67,6 +68,10 @@ export function dashboardPage() {
         appointmentsError: '',
         refreshing: false,
         todayLabel: formatDate(new Date()),
+
+        get canCreatePatient() {
+            return this.$store.auth.can(PERMISSIONS.PATIENTS.CREATE);
+        },
 
         async init() {
             const user = await this.$store.auth.bootstrap();

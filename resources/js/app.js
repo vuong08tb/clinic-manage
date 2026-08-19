@@ -1,6 +1,8 @@
 import Alpine from 'alpinejs';
 import { loginPage } from './features/auth/login';
 import { dashboardPage } from './features/dashboard';
+import { patientIndexPage } from './features/patients';
+import { patientShowPage } from './features/patients/show';
 import { createAuthStore } from './stores/auth-store';
 import { createUiStore } from './stores/ui-store';
 
@@ -12,6 +14,8 @@ document.addEventListener('alpine:init', () => {
 
     Alpine.data('loginPage', loginPage);
     Alpine.data('dashboardPage', dashboardPage);
+    Alpine.data('patientIndexPage', patientIndexPage);
+    Alpine.data('patientShowPage', patientShowPage);
 });
 
 Alpine.start();

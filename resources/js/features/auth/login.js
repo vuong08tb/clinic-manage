@@ -1,5 +1,6 @@
 import { ApiError } from '../../core/api-error';
 import { hasAuthToken } from '../../core/auth-storage';
+import { firstFieldError } from '../../core/form-errors';
 
 export function loginPage() {
     return {
@@ -53,9 +54,7 @@ export function loginPage() {
         },
 
         fieldError(field) {
-            const messages = this.errors?.[field];
-
-            return Array.isArray(messages) ? messages[0] : null;
+            return firstFieldError(this.errors, field);
         },
     };
 }
