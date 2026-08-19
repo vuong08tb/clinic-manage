@@ -721,13 +721,13 @@ Lễ tân đặt lịch: chọn bệnh nhân + bác sĩ + thời điểm (+ lý 
 *Prompt gợi ý (vibe code):* "CRUD Appointments + APPOINTMENTS.*; store gắn patient+doctor+scheduled_at, status mặc định scheduled, validate tồn tại (exists), update chỉ khi scheduled; index filter doctor_id/patient_id/status/date; eager load patient+doctor.user."
 
 **4. Checklist hoàn thành**
-- [ ] CRUD cơ bản + filter.
-- [ ] Status mặc định scheduled.
-- [ ] `update` chỉ khi scheduled.
+- [x] CRUD cơ bản + filter.
+- [x] Status mặc định scheduled.
+- [x] `update` chỉ khi scheduled.
 
 **5. Checklist self-test**
-- [ ] Tạo với doctor không tồn tại → 422.
-- [ ] `?doctor_id=&status=` lọc đúng.
+- [x] Tạo với doctor không tồn tại → 422.
+- [x] `?doctor_id=&status=` lọc đúng.
 
 ---
 
