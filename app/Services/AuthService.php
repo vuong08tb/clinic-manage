@@ -6,6 +6,7 @@ use App\Constants\AuthMessage;
 use App\Models\User;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * Handle credential verification and Sanctum token lifecycle operations.
@@ -45,7 +46,11 @@ class AuthService
      */
     public function logout(User $user): void
     {
-        $user->currentAccessToken()?->delete();
+        $accessToken = $user->currentAccessToken();
+
+        if ($accessToken instanceof PersonalAccessToken) {
+            $accessToken->delete();
+        }
     }
 
     /**
