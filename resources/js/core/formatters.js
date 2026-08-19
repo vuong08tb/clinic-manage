@@ -1,3 +1,19 @@
+const CLINIC_TIMEZONE = "Asia/Ho_Chi_Minh";
+
+// Vietnam has been a fixed UTC+7 with no daylight saving since 1975, so a plain
+// offset is enough to convert between an instant and the clinic wall clock.
+const CLINIC_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+// Shifts an instant so its UTC getters read as the clinic wall clock.
+function toClinicClock(date) {
+    return new Date(date.getTime() + CLINIC_OFFSET_MS);
+}
+
+// Turns a clinic wall clock back into the instant it represents.
+function fromClinicClock(date) {
+    return new Date(date.getTime() - CLINIC_OFFSET_MS);
+}
+
 const STATUS_LABELS = {
     scheduled: "Đã lên lịch",
     confirmed: "Đã xác nhận",
@@ -27,9 +43,7 @@ const GENDER_LABELS = {
 };
 
 export function localDateInput(date = new Date()) {
-    const offset = date.getTimezoneOffset() * 60_000;
-
-    return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+    return toClinicClock(date).toISOString().slice(0, 10);
 }
 
 export function formatDate(date, options = {}) {
@@ -39,6 +53,7 @@ export function formatDate(date, options = {}) {
 
     return new Intl.DateTimeFormat("vi-VN", {
         dateStyle: "long",
+        timeZone: CLINIC_TIMEZONE,
         ...options,
     }).format(new Date(date));
 }
@@ -54,8 +69,8 @@ export function formatDateOnly(value) {
         return "—";
     }
 
-    return new Intl.DateTimeFormat("vi-VN").format(
-        new Date(year, month - 1, day),
+    return new Intl.DateTimeFormat("vi-VN", { timeZone: "UTC" }).format(
+        new Date(Date.UTC(year, month - 1, day)),
     );
 }
 
@@ -67,6 +82,7 @@ export function formatTime(date) {
     return new Intl.DateTimeFormat("vi-VN", {
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: CLINIC_TIMEZONE,
     }).format(new Date(date));
 }
 
@@ -89,7 +105,12 @@ export function statusClasses(status) {
 }
 
 export function localDateTimeInput(date = new Date()) {
-    const offset = date.getTimezoneOffset() * 60_000;
-
-    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+    return toClinicClock(date).toISOString().slice(0, 16);
 }
+
+// Reads a <input type="datetime-local"> value as clinic time, not browser time.
+export function fromLocalDateTimeInput(value) {
+    return fromClinicClock(new Date(value + "Z"));
+}
+
+export { CLINIC_TIMEZONE, toClinicClock, fromClinicClock };

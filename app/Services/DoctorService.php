@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Constants\DoctorMessage;
 use App\Models\Doctor;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -112,7 +113,7 @@ class DoctorService
             ->lockForUpdate()
             ->findOrFail($userId);
 
-        if ($user->role->name === 'DOCTOR') {
+        if ($user->role->name === Role::DOCTOR) {
             $existingDoctor = Doctor::query()
                 ->where('user_id', $userId)
                 ->when(

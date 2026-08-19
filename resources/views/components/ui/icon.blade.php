@@ -1,7 +1,8 @@
-@props(['name'])
+{{-- `size` is a prop, not a class: merged `h-4 w-4` would lose to the default `h-5 w-5`. --}}
+@props(['name', 'size' => 'h-5 w-5'])
 
 <svg
-    {{ $attributes->class(['h-5 w-5 shrink-0']) }}
+    {{ $attributes->class([$size, 'shrink-0']) }}
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -76,6 +77,25 @@
             @break
         @case('arrow-right')
             <path d="M5 12h14M13 6l6 6-6 6" />
+            @break
+        @case('eye')
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+            <circle cx="12" cy="12" r="3" />
+            @break
+        @case('edit')
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            @break
+        @case('trash')
+            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+            <path d="M10 11v6M14 11v6" />
+            @break
+        @case('check')
+            <path d="m20 6-11 11-5-5" />
+            @break
+        @case('ban')
+            <circle cx="12" cy="12" r="9" />
+            <path d="m5.6 5.6 12.8 12.8" />
             @break
         @case('clock')
             <circle cx="12" cy="12" r="9" />

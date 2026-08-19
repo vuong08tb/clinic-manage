@@ -6,6 +6,8 @@ services:
         container_name: clinic_app
         restart: unless-stopped
         working_dir: /var/www
+        environment:
+            TZ: Asia/Ho_Chi_Minh
         ports:
             - "8000:8000"
         volumes:
@@ -24,6 +26,12 @@ services:
             POSTGRES_DB: clinic_app
             POSTGRES_USER: clinic
             POSTGRES_PASSWORD: secret
+            TZ: Asia/Ho_Chi_Minh
+            PGTZ: Asia/Ho_Chi_Minh
+        command: >
+            postgres
+            -c timezone=Asia/Ho_Chi_Minh
+            -c log_timezone=Asia/Ho_Chi_Minh
         ports:
             - "5433:5432"
         volumes:

@@ -128,3 +128,29 @@ docker compose up -d --build                        # build lại sau khi đổi
 - [ ] Port API 8000; Postgres host 5433.
 - [ ] Ghi version Docker/Compose vào README.
 - [ ] Không commit `.env`.
+
+---
+
+## 9. Timezone (UTC+7)
+
+Toàn bộ stack chạy ở `Asia/Ho_Chi_Minh`. Ba tầng phải khớp nhau, thiếu một tầng là lệch giờ:
+
+| Tầng | Cấu hình | Ở đâu |
+|---|---|---|
+| OS container `app` | `ENV TZ=Asia/Ho_Chi_Minh` + `tzdata` + symlink `/etc/localtime` | `Dockerfile` |
+| PHP | `date.timezone` trong `conf.d/timezone.ini` | `Dockerfile` |
+| Laravel | `APP_TIMEZONE=Asia/Ho_Chi_Minh` → `config/app.php` | `.env` |
+| Postgres server | `-c timezone=Asia/Ho_Chi_Minh -c log_timezone=...` | `docker-compose.yml` |
+| Postgres session | `DB_TIMEZONE` → `config/database.php` (`set time zone`) | `.env` |
+
+> Đổi `TZ` trong Dockerfile phải `docker compose up -d --build`; đổi biến `TZ` trong compose chỉ cần recreate container.
+
+### Kiểm tra nhanh
+
+```bash
+docker compose exec app date                    # → +07
+docker compose exec app php -r 'echo date("c");'
+docker compose exec db psql -U clinic -d clinic_app -c "SHOW timezone;"
+```
+
+Cả ba phải trả về `+07` / `Asia/Ho_Chi_Minh`.

@@ -3,9 +3,8 @@
 @section('title', 'Lịch hẹn')
 
 @section('content')
-<div x-data="appointmentIndexPage" x-init="init()" x-on:keydown.escape.window="
-        statusTarget ? cancelStatusChange() : (createOpen ? closeCreateModal() : (drawerOpen ? closeDrawer() : null))
-    " class="mx-auto max-w-[1600px] space-y-6">
+<div x-data="appointmentIndexPage" x-init="init()" x-on:keydown.escape.window="handleEscape()"
+    class="mx-auto max-w-[1600px] space-y-6">
     <x-layout.page-header title="Lịch hẹn" description="Quản lý lịch khám của bệnh nhân theo bác sĩ.">
         <x-slot:actions>
             <x-ui.button variant="secondary" x-on:click="refresh()" x-bind:disabled="refreshing">
@@ -110,7 +109,7 @@
                 {{-- Mobile cards --}}
                 <div class="divide-y divide-slate-100 md:hidden">
                     <template x-for="appointment in appointments" :key="appointment.id">
-                        <article class="space-y-2 p-4" x-on:click="openDetail(appointment)">
+                        <article class="space-y-3 p-4">
                             <div class="flex items-start justify-between gap-3">
                                 <div>
                                     <p class="text-sm font-semibold text-slate-900"
@@ -123,8 +122,26 @@
                                     x-bind:class="statusClasses(appointment.status)"
                                     x-text="statusLabel(appointment.status)"></span>
                             </div>
+
                             <p class="text-xs text-slate-500" x-text="`BS. ${appointment.doctor?.user?.name ?? '—'}`">
                             </p>
+
+                            <div class="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                                <x-ui.row-action label="Xem" icon="eye" x-show="canView"
+                                    x-on:click="openDetailModal(appointment)" />
+
+                                <x-ui.row-action label="Sửa" icon="edit" tone="neutral" x-show="canEdit(appointment)"
+                                    x-on:click="openEditModal(appointment)" />
+
+                                <template x-for="next in statusActions(appointment)" :key="next">
+                                    <x-ui.row-action label-expr="`Chuyển sang: ${statusLabel(next)}`"
+                                        tone-expr="next === 'cancelled' ? 'danger' : 'success'"
+                                        x-on:click="askStatusChange(appointment, next)">
+                                        <x-ui.icon name="check" size="h-4 w-4" x-show="next !== 'cancelled'" />
+                                        <x-ui.icon name="ban" size="h-4 w-4" x-show="next === 'cancelled'" />
+                                    </x-ui.row-action>
+                                </template>
+                            </div>
                         </article>
                     </template>
                 </div>
@@ -159,12 +176,26 @@
                                             x-bind:class="statusClasses(appointment.status)"
                                             x-text="statusLabel(appointment.status)"></span>
                                     </td>
-                                    <td class="whitespace-nowrap px-5 py-4 text-right">
-                                        <button x-show="canView" type="button"
-                                            class="text-sm font-semibold text-blue-600 hover:text-blue-700"
-                                            x-on:click="openDetail(appointment)">
-                                            Xem
-                                        </button>
+                                    <td class="px-5 py-4 text-right">
+                                        <div class="inline-flex flex-wrap items-center justify-end gap-2">
+                                            <x-ui.row-action label="Xem" icon="eye" x-show="canView"
+                                                x-on:click="openDetailModal(appointment)" />
+
+                                            <x-ui.row-action label="Sửa" icon="edit" tone="neutral"
+                                                x-show="canEdit(appointment)" x-on:click="openEditModal(appointment)" />
+
+                                            {{-- Status transitions live in the row so they do not need the detail modal --}}
+                                            <template x-for="next in statusActions(appointment)" :key="next">
+                                                <x-ui.row-action label-expr="`Chuyển sang: ${statusLabel(next)}`"
+                                                    tone-expr="next === 'cancelled' ? 'danger' : 'success'"
+                                                    x-on:click="askStatusChange(appointment, next)">
+                                                    <x-ui.icon name="check" size="h-4 w-4"
+                                                        x-show="next !== 'cancelled'" />
+                                                    <x-ui.icon name="ban" size="h-4 w-4"
+                                                        x-show="next === 'cancelled'" />
+                                                </x-ui.row-action>
+                                            </template>
+                                        </div>
                                     </td>
                                 </tr>
                             </template>
@@ -230,7 +261,7 @@
 
                         <div class="space-y-2">
                             <template x-for="appointment in day.appointments" :key="appointment.id">
-                                <button type="button" x-on:click="openDetail(appointment)"
+                                <button type="button" x-on:click="openDetailModal(appointment)"
                                     class="block w-full rounded-lg p-2 text-left text-xs ring-1 ring-inset"
                                     x-bind:class="statusClasses(appointment.status)">
                                     <p class="font-semibold" x-text="formatTime(appointment.scheduled_at)"></p>
@@ -248,215 +279,194 @@
         </section>
     </template>
 
-    {{-- CREATE MODAL --}}
-    <div x-cloak x-show="createOpen" class="fixed inset-0 z-50 grid place-items-center p-4" role="dialog"
-        aria-modal="true" aria-labelledby="create-appointment-title">
-        <div x-show="createOpen" x-transition.opacity class="absolute inset-0 bg-slate-950/40"
-            x-on:click="closeCreateModal()"></div>
-
-        <div x-show="createOpen" x-transition class="surface-card relative w-full max-w-lg p-6">
-            <div class="mb-5 flex items-center justify-between">
-                <h2 id="create-appointment-title" class="text-lg font-bold text-slate-900">Tạo lịch hẹn</h2>
-                <button type="button" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-                    x-on:click="closeCreateModal()" aria-label="Đóng form">
-                    <x-ui.icon name="close" />
-                </button>
-            </div>
-
-            <form x-on:submit.prevent="submitCreate()" novalidate class="space-y-4">
-                <div x-cloak x-show="createMessage"
-                    class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700" role="alert"
-                    x-text="createMessage"></div>
-
-                <div>
-                    <label class="mb-2 block text-sm font-semibold text-slate-700">
-                        Bệnh nhân <span class="text-rose-600">*</span>
-                    </label>
-
-                    <div x-show="createForm.patient_id"
-                        class="flex items-center justify-between rounded-xl border border-slate-300 px-3 py-2.5">
-                        <span class="text-sm text-slate-800" x-text="createForm.patient_label"></span>
-                        <button type="button" class="text-xs font-semibold text-rose-600"
-                            x-on:click="clearSelectedPatient()">
-                            Đổi
-                        </button>
-                    </div>
-
-                    <div x-show="!createForm.patient_id" class="relative">
-                        <input type="text" class="form-input" placeholder="Tìm theo tên, SĐT hoặc mã bệnh nhân"
-                            x-model="patientQuery" x-on:input.debounce.350ms="searchPatients()"
-                            x-bind:class="{ 'form-input-error': createFieldError('patient_id') }">
-
-                        <ul x-show="patientResults.length > 0"
-                            class="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
-                            <template x-for="patient in patientResults" :key="patient.id">
-                                <li>
-                                    <button type="button" x-on:click="selectPatient(patient)"
-                                        class="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50">
-                                        <span class="font-semibold" x-text="patient.full_name"></span>
-                                        <span class="ml-1 text-xs text-slate-500" x-text="`(${patient.code})`"></span>
-                                    </button>
-                                </li>
-                            </template>
-                        </ul>
-                    </div>
-
-                    <p x-cloak x-show="createFieldError('patient_id')" class="mt-1.5 text-sm text-rose-600"
-                        x-text="createFieldError('patient_id')"></p>
-                </div>
-
-                <div>
-                    <label for="appointment-doctor-select" class="mb-2 block text-sm font-semibold text-slate-700">
-                        Bác sĩ <span class="text-rose-600">*</span>
-                    </label>
-                    <select id="appointment-doctor-select" class="form-input" required x-model="createForm.doctor_id"
-                        x-bind:class="{ 'form-input-error': createFieldError('doctor_id') }">
-                        <option value="">Chọn bác sĩ</option>
-                        <template x-for="doctor in doctorOptions" :key="doctor.id">
-                            <option :value="doctor.id" x-text="doctor.label"></option>
-                        </template>
-                    </select>
-                    <p x-cloak x-show="createFieldError('doctor_id')" class="mt-1.5 text-sm text-rose-600"
-                        x-text="createFieldError('doctor_id')"></p>
-                </div>
-
-                <div>
-                    <label for="appointment-scheduled-at" class="mb-2 block text-sm font-semibold text-slate-700">
-                        Thời gian hẹn <span class="text-rose-600">*</span>
-                    </label>
-                    <input id="appointment-scheduled-at" type="datetime-local" class="form-input" required
-                        x-model="createForm.scheduled_at"
-                        x-bind:class="{ 'form-input-error': createFieldError('scheduled_at') }">
-                    <p x-cloak x-show="createFieldError('scheduled_at')" class="mt-1.5 text-sm text-rose-600"
-                        x-text="createFieldError('scheduled_at')"></p>
-                </div>
-
-                <div>
-                    <label for="appointment-reason" class="mb-2 block text-sm font-semibold text-slate-700">
-                        Lý do khám
-                    </label>
-                    <textarea id="appointment-reason" rows="2" class="form-input" maxlength="255"
-                        x-model.trim="createForm.reason"
-                        x-bind:class="{ 'form-input-error': createFieldError('reason') }"></textarea>
-                    <p x-cloak x-show="createFieldError('reason')" class="mt-1.5 text-sm text-rose-600"
-                        x-text="createFieldError('reason')"></p>
-                </div>
-
-                <div class="flex justify-end gap-3 border-t border-slate-200 pt-4">
-                    <x-ui.button type="button" variant="secondary" x-on:click="closeCreateModal()"
-                        x-bind:disabled="creating">
-                        Hủy
-                    </x-ui.button>
-                    <x-ui.button type="submit" x-bind:disabled="creating">
-                        <span x-text="creating ? 'Đang lưu…' : 'Tạo lịch hẹn'"></span>
-                    </x-ui.button>
-                </div>
-            </form>
+    {{-- Detail modal --}}
+    <x-ui.modal show="detailOpen" close="closeDetailModal()" id="appointment-detail" title="Chi tiết lịch hẹn"
+        subtitle-expr="detail?.id ? `Mã lịch hẹn: #${detail.id}` : ''">
+        <div x-show="detailLoading" class="space-y-3" role="status" aria-label="Đang tải lịch hẹn">
+            <div class="h-5 w-40 animate-pulse rounded bg-slate-100"></div>
+            <div class="h-20 animate-pulse rounded-xl bg-slate-100"></div>
         </div>
-    </div>
 
-    {{-- DETAIL / EDIT DRAWER --}}
-    <div x-cloak x-show="drawerOpen" class="fixed inset-0 z-50" role="dialog" aria-modal="true"
-        aria-labelledby="appointment-drawer-title">
-        <div x-show="drawerOpen" x-transition.opacity class="absolute inset-0 bg-slate-950/40"
-            x-on:click="closeDrawer()"></div>
+        <p x-cloak x-show="detailError" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+            role="alert" x-text="detailError"></p>
 
-        <aside x-show="drawerOpen" x-transition:enter="transition duration-200"
-            x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
-            x-transition:leave="transition duration-150" x-transition:leave-start="translate-x-0"
-            x-transition:leave-end="translate-x-full"
-            class="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col bg-white shadow-2xl">
-            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-                <h2 id="appointment-drawer-title" class="text-lg font-bold text-slate-900">Chi tiết lịch hẹn</h2>
-                <button type="button" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-                    x-on:click="closeDrawer()" aria-label="Đóng">
-                    <x-ui.icon name="close" />
-                </button>
-            </div>
-
-            <div class="flex-1 space-y-6 overflow-y-auto p-5" x-show="selected">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="font-bold text-slate-900" x-text="selected?.patient?.full_name"></p>
-                        <p class="text-sm text-slate-500" x-text="`BS. ${selected?.doctor?.user?.name ?? '—'}`"></p>
-                    </div>
-                    <span class="rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset"
-                        x-bind:class="statusClasses(selected?.status)" x-text="statusLabel(selected?.status)"></span>
+        <div x-cloak x-show="!detailLoading && !detailError && detail" class="space-y-5">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <p class="font-bold text-slate-900" x-text="detail?.patient?.full_name ?? '—'"></p>
+                    <p class="text-sm text-slate-500" x-text="`BS. ${detail?.doctor?.user?.name ?? '—'}`"></p>
                 </div>
 
-                <a x-show="selected?.status === 'confirmed' && canCreateExamination"
-                    x-bind:href="`/examinations/create?appointment_id=${selected?.id}`"
-                    class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">
-                    <x-ui.icon name="examination" class="h-4 w-4" />
-                    Tạo phiếu khám
-                </a>
+                <span class="rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset"
+                    x-bind:class="statusClasses(detail?.status)" x-text="statusLabel(detail?.status)"></span>
+            </div>
 
-                {{-- Status transition actions --}}
-                <div x-show="canUpdateStatus && allowedNextStatuses(selected?.status).length > 0"
-                    class="flex flex-wrap gap-2">
-                    <template x-for="next in allowedNextStatuses(selected?.status)" :key="next">
-                        <button type="button" x-on:click="askStatusChange(next)"
-                            class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                            x-text="`Chuyển sang: ${statusLabel(next)}`"></button>
+            <dl class="grid gap-5 sm:grid-cols-2">
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">Ngày hẹn</dt>
+                    <dd class="mt-1 font-semibold text-slate-900" x-text="formatDate(detail?.scheduled_at)"></dd>
+                </div>
+
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">Giờ hẹn</dt>
+                    <dd class="mt-1 font-semibold text-slate-900" x-text="formatTime(detail?.scheduled_at)"></dd>
+                </div>
+
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">Mã bệnh nhân</dt>
+                    <dd class="mt-1 font-semibold text-slate-900" x-text="detail?.patient?.code ?? '—'"></dd>
+                </div>
+
+                <div>
+                    <dt class="text-sm font-medium text-slate-500">Điện thoại</dt>
+                    <dd class="mt-1 font-semibold text-slate-900" x-text="detail?.patient?.phone ?? '—'"></dd>
+                </div>
+
+                <div class="sm:col-span-2">
+                    <dt class="text-sm font-medium text-slate-500">Lý do khám</dt>
+                    <dd class="mt-1 whitespace-pre-line font-semibold text-slate-900"
+                        x-text="detail?.reason || 'Không có ghi chú.'"></dd>
+                </div>
+            </dl>
+
+            <a x-show="detail?.status === 'confirmed' && canCreateExamination"
+                x-bind:href="examinationCreateUrl(detail)"
+                class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">
+                <x-ui.icon name="examination" size="h-4 w-4" />
+                Tạo phiếu khám
+            </a>
+
+            <p x-show="!canEdit(detail)" class="text-xs text-slate-400">
+                Chỉ lịch hẹn ở trạng thái "Đã lên lịch" mới có thể sửa thời gian/lý do.
+                Chuyển trạng thái được thực hiện ở cột "Thao tác" của danh sách.
+            </p>
+        </div>
+
+        <x-slot:footer>
+            <x-ui.button variant="secondary" x-on:click="closeDetailModal()">
+                Đóng
+            </x-ui.button>
+
+            <x-ui.button x-show="canEdit(detail)" x-on:click="editFromDetail()">
+                Sửa lịch hẹn
+            </x-ui.button>
+        </x-slot:footer>
+    </x-ui.modal>
+
+    {{-- Create/update modal --}}
+    <x-ui.modal show="formOpen" close="closeFormModal()" id="appointment-form-modal"
+        title-expr="formMode === 'create' ? 'Tạo lịch hẹn' : 'Cập nhật lịch hẹn'"
+        subtitle-expr="formMode === 'edit' ? 'Chỉ sửa được thời gian và lý do khám.' : 'Chọn bệnh nhân, bác sĩ và thời gian khám.'">
+        <form id="appointment-form" x-on:submit.prevent="submitForm()" novalidate class="space-y-4">
+            <div x-cloak x-show="formMessage"
+                class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700" role="alert"
+                x-text="formMessage"></div>
+
+            <div>
+                <label class="mb-2 block text-sm font-semibold text-slate-700">
+                    Bệnh nhân <span class="text-rose-600">*</span>
+                </label>
+
+                <div x-show="form.patient_id"
+                    class="flex items-center justify-between rounded-xl border border-slate-300 px-3 py-2.5">
+                    <span class="text-sm text-slate-800" x-text="form.patient_label"></span>
+                    <button type="button" x-show="formMode === 'create'" class="text-xs font-semibold text-rose-600"
+                        x-on:click="clearSelectedPatient()">
+                        Đổi
+                    </button>
+                </div>
+
+                <div x-show="!form.patient_id" class="relative">
+                    <input type="text" class="form-input" placeholder="Tìm theo tên, SĐT hoặc mã bệnh nhân"
+                        x-model="patientQuery" x-on:input.debounce.350ms="searchPatients()"
+                        x-bind:class="{ 'form-input-error': fieldError('patient_id') }">
+
+                    <ul x-show="patientResults.length > 0"
+                        class="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                        <template x-for="patient in patientResults" :key="patient.id">
+                            <li>
+                                <button type="button" x-on:click="selectPatient(patient)"
+                                    class="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50">
+                                    <span class="font-semibold" x-text="patient.full_name"></span>
+                                    <span class="ml-1 text-xs text-slate-500" x-text="`(${patient.code})`"></span>
+                                </button>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+
+                <p x-cloak x-show="fieldError('patient_id')" class="mt-1.5 text-sm text-rose-600"
+                    x-text="fieldError('patient_id')"></p>
+            </div>
+
+            <div>
+                <label for="appointment-doctor-select" class="mb-2 block text-sm font-semibold text-slate-700">
+                    Bác sĩ <span class="text-rose-600">*</span>
+                </label>
+                <select id="appointment-doctor-select" class="form-input" required x-model="form.doctor_id"
+                    x-bind:disabled="formMode === 'edit'"
+                    x-bind:class="{ 'form-input-error': fieldError('doctor_id') }">
+                    <option value="">Chọn bác sĩ</option>
+                    <template x-for="doctor in doctorOptions" :key="doctor.id">
+                        <option :value="doctor.id" x-text="doctor.label"></option>
                     </template>
-                </div>
-
-                {{-- Inline confirm --}}
-                <div x-cloak x-show="statusTarget" class="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                    <p class="text-sm text-amber-800"
-                        x-text="`Xác nhận chuyển trạng thái sang \u201c${statusLabel(statusTarget)}\u201d?`"></p>
-                    <div class="mt-3 flex justify-end gap-2">
-                        <x-ui.button variant="secondary" x-on:click="cancelStatusChange()"
-                            x-bind:disabled="updatingStatus">
-                            Hủy
-                        </x-ui.button>
-                        <x-ui.button x-on:click="confirmStatusChange()" x-bind:disabled="updatingStatus">
-                            <span x-text="updatingStatus ? 'Đang cập nhật…' : 'Xác nhận'"></span>
-                        </x-ui.button>
-                    </div>
-                </div>
-
-                {{-- Edit form: only when scheduled + có quyền UPDATE --}}
-                <form x-show="editForm" x-on:submit.prevent="submitEdit()" novalidate
-                    class="space-y-4 border-t border-slate-200 pt-5">
-                    <div x-cloak x-show="editMessage"
-                        class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"
-                        x-text="editMessage"></div>
-
-                    <div>
-                        <label for="edit-scheduled-at" class="mb-2 block text-sm font-semibold text-slate-700">
-                            Thời gian hẹn
-                        </label>
-                        <input id="edit-scheduled-at" type="datetime-local" class="form-input" required
-                            x-model="editForm.scheduled_at"
-                            x-bind:class="{ 'form-input-error': editFieldError('scheduled_at') }">
-                        <p x-cloak x-show="editFieldError('scheduled_at')" class="mt-1.5 text-sm text-rose-600"
-                            x-text="editFieldError('scheduled_at')"></p>
-                    </div>
-
-                    <div>
-                        <label for="edit-reason" class="mb-2 block text-sm font-semibold text-slate-700">
-                            Lý do khám
-                        </label>
-                        <textarea id="edit-reason" rows="2" class="form-input" maxlength="255"
-                            x-model.trim="editForm.reason"
-                            x-bind:class="{ 'form-input-error': editFieldError('reason') }"></textarea>
-                        <p x-cloak x-show="editFieldError('reason')" class="mt-1.5 text-sm text-rose-600"
-                            x-text="editFieldError('reason')"></p>
-                    </div>
-
-                    <div class="flex justify-end">
-                        <x-ui.button type="submit" x-bind:disabled="editing">
-                            <span x-text="editing ? 'Đang lưu…' : 'Lưu thay đổi'"></span>
-                        </x-ui.button>
-                    </div>
-                </form>
-
-                <p x-show="!editForm" class="text-xs text-slate-400">
-                    Chỉ lịch hẹn ở trạng thái "Đã lên lịch" mới có thể sửa thời gian/lý do.
-                </p>
+                </select>
+                <p x-cloak x-show="fieldError('doctor_id')" class="mt-1.5 text-sm text-rose-600"
+                    x-text="fieldError('doctor_id')"></p>
             </div>
-        </aside>
-    </div>
+
+            <div>
+                <label for="appointment-scheduled-at" class="mb-2 block text-sm font-semibold text-slate-700">
+                    Thời gian hẹn <span class="text-rose-600">*</span>
+                </label>
+                <input id="appointment-scheduled-at" type="datetime-local" class="form-input" required
+                    x-model="form.scheduled_at" x-bind:class="{ 'form-input-error': fieldError('scheduled_at') }">
+                <p x-cloak x-show="fieldError('scheduled_at')" class="mt-1.5 text-sm text-rose-600"
+                    x-text="fieldError('scheduled_at')"></p>
+            </div>
+
+            <div>
+                <label for="appointment-reason" class="mb-2 block text-sm font-semibold text-slate-700">
+                    Lý do khám
+                </label>
+                <textarea id="appointment-reason" rows="2" class="form-input" maxlength="255" x-model.trim="form.reason"
+                    x-bind:class="{ 'form-input-error': fieldError('reason') }"></textarea>
+                <p x-cloak x-show="fieldError('reason')" class="mt-1.5 text-sm text-rose-600"
+                    x-text="fieldError('reason')"></p>
+            </div>
+        </form>
+
+        <x-slot:footer>
+            <x-ui.button variant="secondary" x-on:click="closeFormModal()" x-bind:disabled="submitting">
+                Hủy
+            </x-ui.button>
+
+            <x-ui.button type="submit" form="appointment-form" x-bind:disabled="submitting">
+                <span x-show="submitting"
+                    class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                    aria-hidden="true"></span>
+
+                <span x-text="submitting
+                        ? 'Đang lưu…'
+                        : (formMode === 'create' ? 'Tạo lịch hẹn' : 'Lưu thay đổi')"></span>
+            </x-ui.button>
+        </x-slot:footer>
+    </x-ui.modal>
+
+    {{-- Status change confirmation popup --}}
+    <x-ui.confirm-modal show="statusTarget" cancel="cancelStatusChange()" confirm="confirmStatusChange()"
+        id="appointment-status" title="Chuyển trạng thái lịch hẹn?" busy="updatingStatus" variant="primary"
+        confirm-label="Xác nhận" busy-label="Đang cập nhật…">
+        <p>
+            Lịch hẹn của
+            <strong x-text="statusTarget?.appointment?.patient?.full_name ?? 'bệnh nhân'"></strong>
+            sẽ chuyển sang trạng thái
+            <strong x-text="statusLabel(statusTarget?.status)"></strong>.
+        </p>
+
+        <p class="text-xs text-slate-500">
+            Backend là nơi kiểm tra cuối cùng các bước chuyển trạng thái được phép.
+        </p>
+    </x-ui.confirm-modal>
 </div>
 @endsection

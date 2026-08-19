@@ -10,6 +10,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable(['name', 'display_name'])]
 class Role extends Model
 {
+    public const ADMIN = 'ADMIN';
+
+    public const DOCTOR = 'DOCTOR';
+
     public function users(): HasMany
     {
         return $this->hasMany(User::class);

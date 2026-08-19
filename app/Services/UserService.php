@@ -163,7 +163,7 @@ class UserService
     ): User {
         return DB::transaction(function () use ($user, $field, $mutation, $newRoleId): User {
             $adminRoleId = Role::query()
-                ->where('name', 'ADMIN')
+                ->where('name', Role::ADMIN)
                 ->value('id');
 
             if ($adminRoleId === null) {
@@ -240,7 +240,7 @@ class UserService
 
         $newRoleName = Role::query()->whereKey($newRoleId)->value('name');
 
-        if ($newRoleName === 'DOCTOR') {
+        if ($newRoleName === Role::DOCTOR) {
             return;
         }
 

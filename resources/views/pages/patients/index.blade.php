@@ -13,7 +13,7 @@
                 <span x-text="refreshing ? 'Đang tải' : 'Làm mới'"></span>
             </x-ui.button>
 
-            <x-ui.button x-show="canCreate" x-on:click="openCreateDrawer()">
+            <x-ui.button x-show="canCreate" x-on:click="openCreateModal()">
                 <x-ui.icon name="patients" />
                 Thêm bệnh nhân
             </x-ui.button>
@@ -75,7 +75,7 @@
         <x-ui.empty-state icon="patients" title="Không tìm thấy bệnh nhân"
             description="Hãy thử từ khóa khác hoặc thêm bệnh nhân mới.">
             <x-slot:action>
-                <x-ui.button x-show="canCreate" x-on:click="openCreateDrawer()">
+                <x-ui.button x-show="canCreate" x-on:click="openCreateModal()">
                     Thêm bệnh nhân
                 </x-ui.button>
             </x-slot:action>
@@ -125,23 +125,15 @@
                         <p class="truncate" x-text="patient.address || 'Chưa có địa chỉ'"></p>
                     </div>
 
-                    <div class="flex items-center gap-4 border-t border-slate-100 pt-3">
-                        <a x-show="canView" x-bind:href="patientDetailUrl(patient)"
-                            class="text-sm font-semibold text-blue-600 hover:text-blue-700">
-                            Xem
-                        </a>
+                    <div class="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
+                        <x-ui.row-action label="Xem" icon="eye" x-show="canView"
+                            x-on:click="openDetailModal(patient)" />
 
-                        <button x-show="canUpdate" type="button"
-                            class="text-sm font-semibold text-slate-600 hover:text-slate-900"
-                            x-on:click="openEditDrawer(patient)">
-                            Sửa
-                        </button>
+                        <x-ui.row-action label="Sửa" icon="edit" tone="neutral" x-show="canUpdate"
+                            x-on:click="openEditModal(patient)" />
 
-                        <button x-show="canDelete" type="button"
-                            class="text-sm font-semibold text-rose-600 hover:text-rose-700"
-                            x-on:click="askDelete(patient)">
-                            Xóa
-                        </button>
+                        <x-ui.row-action label="Xóa" icon="trash" tone="danger" x-show="canDelete"
+                            x-on:click="askDelete(patient)" />
                     </div>
                 </article>
             </template>
@@ -203,23 +195,15 @@
                             </td>
 
                             <td class="whitespace-nowrap px-5 py-4 text-right">
-                                <div class="inline-flex items-center gap-3">
-                                    <a x-show="canView" x-bind:href="patientDetailUrl(patient)"
-                                        class="text-sm font-semibold text-blue-600 hover:text-blue-700">
-                                        Xem
-                                    </a>
+                                <div class="inline-flex items-center gap-2">
+                                    <x-ui.row-action label="Xem" icon="eye" x-show="canView"
+                                        x-on:click="openDetailModal(patient)" />
 
-                                    <button x-show="canUpdate" type="button"
-                                        class="text-sm font-semibold text-slate-600 hover:text-slate-900"
-                                        x-on:click="openEditDrawer(patient)">
-                                        Sửa
-                                    </button>
+                                    <x-ui.row-action label="Sửa" icon="edit" tone="neutral" x-show="canUpdate"
+                                        x-on:click="openEditModal(patient)" />
 
-                                    <button x-show="canDelete" type="button"
-                                        class="text-sm font-semibold text-rose-600 hover:text-rose-700"
-                                        x-on:click="askDelete(patient)">
-                                        Xóa
-                                    </button>
+                                    <x-ui.row-action label="Xóa" icon="trash" tone="danger" x-show="canDelete"
+                                        x-on:click="askDelete(patient)" />
                                 </div>
                             </td>
                         </tr>
@@ -263,220 +247,231 @@
         </div>
     </section>
 
-    {{-- Create/update drawer --}}
-    <div x-cloak x-show="drawerOpen" class="fixed inset-0 z-50" role="dialog" aria-modal="true"
-        aria-labelledby="patient-drawer-title">
-        <div x-show="drawerOpen" x-transition.opacity class="absolute inset-0 bg-slate-950/40"
-            x-on:click="closeDrawer()"></div>
-
-        <aside x-show="drawerOpen" x-transition:enter="transition duration-200"
-            x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
-            x-transition:leave="transition duration-150" x-transition:leave-start="translate-x-0"
-            x-transition:leave-end="translate-x-full"
-            class="absolute inset-y-0 right-0 flex w-full max-w-2xl flex-col bg-white shadow-2xl">
-            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-                <div>
-                    <h2 id="patient-drawer-title" class="text-lg font-bold text-slate-900" x-text="
-                                formMode === 'create'
-                                    ? 'Thêm bệnh nhân'
-                                    : 'Cập nhật bệnh nhân'
-                            "></h2>
-
-                    <p class="mt-1 text-sm text-slate-500" x-text="
-                                formMode === 'edit'
-                                    ? `Mã bệnh nhân: ${editingCode}`
-                                    : 'Mã bệnh nhân được hệ thống tự động tạo.'
-                            "></p>
-                </div>
-
-                <button type="button" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-                    x-on:click="closeDrawer()" aria-label="Đóng form">
-                    <x-ui.icon name="close" />
-                </button>
-            </div>
-
-            <form id="patient-form" class="flex-1 overflow-y-auto p-5" x-on:submit.prevent="submitForm()" novalidate>
-                <div x-cloak x-show="formMessage"
-                    class="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700" role="alert"
-                    x-text="formMessage"></div>
-
-                <div class="grid gap-5 sm:grid-cols-2">
-                    <div class="sm:col-span-2">
-                        <label for="patient-full-name" class="mb-2 block text-sm font-semibold text-slate-700">
-                            Họ và tên
-                            <span class="text-rose-600">*</span>
-                        </label>
-
-                        <input id="patient-full-name" type="text" class="form-input" maxlength="255" required
-                            x-model.trim="form.full_name" x-bind:class="{
-                                    'form-input-error':
-                                        fieldError('full_name')
-                                }" x-bind:aria-invalid="
-                                    Boolean(fieldError('full_name'))
-                                ">
-
-                        <p x-cloak x-show="fieldError('full_name')" class="mt-1.5 text-sm text-rose-600"
-                            x-text="fieldError('full_name')"></p>
-                    </div>
-
-                    <div>
-                        <label for="patient-gender" class="mb-2 block text-sm font-semibold text-slate-700">
-                            Giới tính
-                            <span class="text-rose-600">*</span>
-                        </label>
-
-                        <select id="patient-gender" class="form-input" required x-model="form.gender" x-bind:class="{
-                                    'form-input-error':
-                                        fieldError('gender')
-                                }" x-bind:aria-invalid="
-                                    Boolean(fieldError('gender'))
-                                ">
-                            <option value="">
-                                Chọn giới tính
-                            </option>
-                            <option value="male">
-                                Nam
-                            </option>
-                            <option value="female">
-                                Nữ
-                            </option>
-                            <option value="other">
-                                Khác
-                            </option>
-                        </select>
-
-                        <p x-cloak x-show="fieldError('gender')" class="mt-1.5 text-sm text-rose-600"
-                            x-text="fieldError('gender')"></p>
-                    </div>
-
-                    <div>
-                        <label for="patient-date-of-birth" class="mb-2 block text-sm font-semibold text-slate-700">
-                            Ngày sinh
-                            <span class="text-rose-600">*</span>
-                        </label>
-
-                        <input id="patient-date-of-birth" type="date" class="form-input" required
-                            x-model="form.date_of_birth" x-bind:max="today" x-bind:class="{
-                                    'form-input-error':
-                                        fieldError('date_of_birth')
-                                }" x-bind:aria-invalid="
-                                    Boolean(fieldError('date_of_birth'))
-                                ">
-
-                        <p x-cloak x-show="fieldError('date_of_birth')" class="mt-1.5 text-sm text-rose-600"
-                            x-text="fieldError('date_of_birth')"></p>
-                    </div>
-
-                    <div>
-                        <label for="patient-phone" class="mb-2 block text-sm font-semibold text-slate-700">
-                            Số điện thoại
-                            <span class="text-rose-600">*</span>
-                        </label>
-
-                        <input id="patient-phone" type="tel" class="form-input" maxlength="20" autocomplete="tel"
-                            required x-model.trim="form.phone" x-bind:class="{
-                                    'form-input-error':
-                                        fieldError('phone')
-                                }" x-bind:aria-invalid="
-                                    Boolean(fieldError('phone'))
-                                ">
-
-                        <p x-cloak x-show="fieldError('phone')" class="mt-1.5 text-sm text-rose-600"
-                            x-text="fieldError('phone')"></p>
-                    </div>
-
-                    <div>
-                        <label for="patient-email" class="mb-2 block text-sm font-semibold text-slate-700">
-                            Email
-                        </label>
-
-                        <input id="patient-email" type="email" class="form-input" maxlength="255" autocomplete="email"
-                            x-model.trim="form.email" x-bind:class="{
-                                    'form-input-error':
-                                        fieldError('email')
-                                }" x-bind:aria-invalid="
-                                    Boolean(fieldError('email'))
-                                ">
-
-                        <p x-cloak x-show="fieldError('email')" class="mt-1.5 text-sm text-rose-600"
-                            x-text="fieldError('email')"></p>
-                    </div>
-
-                    <div class="sm:col-span-2">
-                        <label for="patient-address" class="mb-2 block text-sm font-semibold text-slate-700">
-                            Địa chỉ
-                        </label>
-
-                        <textarea id="patient-address" rows="3" class="form-input" maxlength="255"
-                            x-model.trim="form.address" x-bind:class="{
-                                    'form-input-error':
-                                        fieldError('address')
-                                }" x-bind:aria-invalid="
-                                    Boolean(fieldError('address'))
-                                "></textarea>
-
-                        <p x-cloak x-show="fieldError('address')" class="mt-1.5 text-sm text-rose-600"
-                            x-text="fieldError('address')"></p>
-                    </div>
-                </div>
-            </form>
-
-            <div class="flex justify-end gap-3 border-t border-slate-200 px-5 py-4">
-                <x-ui.button variant="secondary" x-on:click="closeDrawer()" x-bind:disabled="submitting">
-                    Hủy
-                </x-ui.button>
-
-                <x-ui.button type="submit" form="patient-form" x-bind:disabled="submitting">
-                    <span x-show="submitting"
-                        class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                        aria-hidden="true"></span>
-
-                    <span x-text="
-                                submitting
-                                    ? 'Đang lưu…'
-                                    : 'Lưu bệnh nhân'
-                            "></span>
-                </x-ui.button>
-            </div>
-        </aside>
-    </div>
-
-    {{-- Delete confirmation --}}
-    <div x-cloak x-show="deleteTarget" class="fixed inset-0 z-[60] grid place-items-center p-4" role="dialog"
-        aria-modal="true" aria-labelledby="delete-patient-title">
-        <div x-show="deleteTarget" x-transition.opacity class="absolute inset-0 bg-slate-950/40"
-            x-on:click="cancelDelete()"></div>
-
-        <div x-show="deleteTarget" x-transition class="surface-card relative w-full max-w-md p-6">
-            <h2 id="delete-patient-title" class="text-lg font-bold text-slate-900">
-                Xóa bệnh nhân?
-            </h2>
-
-            <p class="mt-3 text-sm leading-6 text-slate-600">
-                Hồ sơ
-                <strong x-text="deleteTarget?.full_name"></strong>
-                sẽ không còn xuất hiện trong danh sách.
-            </p>
-
-            <p class="mt-2 text-xs text-slate-500">
-                Dữ liệu được xóa mềm và không bị xóa vật lý
-                khỏi database.
-            </p>
-
-            <div class="mt-6 flex justify-end gap-3">
-                <x-ui.button variant="secondary" x-on:click="cancelDelete()" x-bind:disabled="deleting">
-                    Hủy
-                </x-ui.button>
-
-                <x-ui.button variant="danger" x-on:click="confirmDelete()" x-bind:disabled="deleting">
-                    <span x-text="
-                                deleting
-                                    ? 'Đang xóa…'
-                                    : 'Xóa bệnh nhân'
-                            "></span>
-                </x-ui.button>
-            </div>
+    {{-- Detail modal --}}
+    <x-ui.modal show="detailOpen" close="closeDetailModal()" id="patient-detail" title="Chi tiết bệnh nhân"
+        subtitle-expr="detail?.code ? `Mã bệnh nhân: ${detail.code}` : ''">
+        <div x-show="detailLoading" class="space-y-3" role="status" aria-label="Đang tải hồ sơ bệnh nhân">
+            <div class="h-5 w-40 animate-pulse rounded bg-slate-100"></div>
+            <div class="h-20 animate-pulse rounded-xl bg-slate-100"></div>
         </div>
-    </div>
+
+        <p x-cloak x-show="detailError" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+            role="alert" x-text="detailError"></p>
+
+        <dl x-cloak x-show="!detailLoading && !detailError && detail" class="grid gap-5 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+                <dt class="text-sm font-medium text-slate-500">Họ và tên</dt>
+                <dd class="mt-1 text-lg font-bold text-slate-900" x-text="detail?.full_name"></dd>
+            </div>
+
+            <div>
+                <dt class="text-sm font-medium text-slate-500">Giới tính</dt>
+                <dd class="mt-1 font-semibold text-slate-900" x-text="genderLabel(detail?.gender)"></dd>
+            </div>
+
+            <div>
+                <dt class="text-sm font-medium text-slate-500">Ngày sinh</dt>
+                <dd class="mt-1 font-semibold text-slate-900" x-text="formatDateOnly(detail?.date_of_birth)"></dd>
+            </div>
+
+            <div>
+                <dt class="text-sm font-medium text-slate-500">Điện thoại</dt>
+                <dd class="mt-1 font-semibold text-slate-900" x-text="detail?.phone"></dd>
+            </div>
+
+            <div>
+                <dt class="text-sm font-medium text-slate-500">Email</dt>
+                <dd class="mt-1 font-semibold text-slate-900" x-text="detail?.email || 'Chưa có email'"></dd>
+            </div>
+
+            <div class="sm:col-span-2">
+                <dt class="text-sm font-medium text-slate-500">Địa chỉ</dt>
+                <dd class="mt-1 font-semibold text-slate-900" x-text="detail?.address || 'Chưa có địa chỉ'"></dd>
+            </div>
+
+            <div>
+                <dt class="text-sm font-medium text-slate-500">Ngày tạo hồ sơ</dt>
+                <dd class="mt-1 font-semibold text-slate-900" x-text="formatDate(detail?.created_at)"></dd>
+            </div>
+
+            <div>
+                <dt class="text-sm font-medium text-slate-500">Cập nhật gần nhất</dt>
+                <dd class="mt-1 font-semibold text-slate-900" x-text="formatDate(detail?.updated_at)"></dd>
+            </div>
+        </dl>
+
+        <x-slot:footer>
+            <x-ui.button variant="secondary" x-on:click="closeDetailModal()">
+                Đóng
+            </x-ui.button>
+
+            <x-ui.button x-show="canUpdate" x-on:click="editFromDetail()">
+                Sửa bệnh nhân
+            </x-ui.button>
+        </x-slot:footer>
+    </x-ui.modal>
+
+    {{-- Create/update modal --}}
+    <x-ui.modal show="formOpen" close="closeFormModal()" id="patient-form-modal"
+        title-expr="formMode === 'create' ? 'Thêm bệnh nhân' : 'Cập nhật bệnh nhân'"
+        subtitle-expr="formMode === 'edit' ? `Mã bệnh nhân: ${editingCode}` : 'Mã bệnh nhân được hệ thống tự động tạo.'">
+        <form id="patient-form" x-on:submit.prevent="submitForm()" novalidate>
+            <div x-cloak x-show="formMessage"
+                class="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700" role="alert"
+                x-text="formMessage"></div>
+
+            <div class="grid gap-5 sm:grid-cols-2">
+                <div class="sm:col-span-2">
+                    <label for="patient-full-name" class="mb-2 block text-sm font-semibold text-slate-700">
+                        Họ và tên
+                        <span class="text-rose-600">*</span>
+                    </label>
+
+                    <input id="patient-full-name" type="text" class="form-input" maxlength="255" required
+                        x-model.trim="form.full_name" x-bind:class="{
+                                'form-input-error':
+                                    fieldError('full_name')
+                            }" x-bind:aria-invalid="
+                                Boolean(fieldError('full_name'))
+                            ">
+
+                    <p x-cloak x-show="fieldError('full_name')" class="mt-1.5 text-sm text-rose-600"
+                        x-text="fieldError('full_name')"></p>
+                </div>
+
+                <div>
+                    <label for="patient-gender" class="mb-2 block text-sm font-semibold text-slate-700">
+                        Giới tính
+                        <span class="text-rose-600">*</span>
+                    </label>
+
+                    <select id="patient-gender" class="form-input" required x-model="form.gender" x-bind:class="{
+                                'form-input-error':
+                                    fieldError('gender')
+                            }" x-bind:aria-invalid="
+                                Boolean(fieldError('gender'))
+                            ">
+                        <option value="">
+                            Chọn giới tính
+                        </option>
+                        <option value="male">
+                            Nam
+                        </option>
+                        <option value="female">
+                            Nữ
+                        </option>
+                        <option value="other">
+                            Khác
+                        </option>
+                    </select>
+
+                    <p x-cloak x-show="fieldError('gender')" class="mt-1.5 text-sm text-rose-600"
+                        x-text="fieldError('gender')"></p>
+                </div>
+
+                <div>
+                    <label for="patient-date-of-birth" class="mb-2 block text-sm font-semibold text-slate-700">
+                        Ngày sinh
+                        <span class="text-rose-600">*</span>
+                    </label>
+
+                    <input id="patient-date-of-birth" type="date" class="form-input" required
+                        x-model="form.date_of_birth" x-bind:max="today" x-bind:class="{
+                                'form-input-error':
+                                    fieldError('date_of_birth')
+                            }" x-bind:aria-invalid="
+                                Boolean(fieldError('date_of_birth'))
+                            ">
+
+                    <p x-cloak x-show="fieldError('date_of_birth')" class="mt-1.5 text-sm text-rose-600"
+                        x-text="fieldError('date_of_birth')"></p>
+                </div>
+
+                <div>
+                    <label for="patient-phone" class="mb-2 block text-sm font-semibold text-slate-700">
+                        Số điện thoại
+                        <span class="text-rose-600">*</span>
+                    </label>
+
+                    <input id="patient-phone" type="tel" class="form-input" maxlength="20" autocomplete="tel" required
+                        x-model.trim="form.phone" x-bind:class="{
+                                'form-input-error':
+                                    fieldError('phone')
+                            }" x-bind:aria-invalid="
+                                Boolean(fieldError('phone'))
+                            ">
+
+                    <p x-cloak x-show="fieldError('phone')" class="mt-1.5 text-sm text-rose-600"
+                        x-text="fieldError('phone')"></p>
+                </div>
+
+                <div>
+                    <label for="patient-email" class="mb-2 block text-sm font-semibold text-slate-700">
+                        Email
+                    </label>
+
+                    <input id="patient-email" type="email" class="form-input" maxlength="255" autocomplete="email"
+                        x-model.trim="form.email" x-bind:class="{
+                                'form-input-error':
+                                    fieldError('email')
+                            }" x-bind:aria-invalid="
+                                Boolean(fieldError('email'))
+                            ">
+
+                    <p x-cloak x-show="fieldError('email')" class="mt-1.5 text-sm text-rose-600"
+                        x-text="fieldError('email')"></p>
+                </div>
+
+                <div class="sm:col-span-2">
+                    <label for="patient-address" class="mb-2 block text-sm font-semibold text-slate-700">
+                        Địa chỉ
+                    </label>
+
+                    <textarea id="patient-address" rows="3" class="form-input" maxlength="255"
+                        x-model.trim="form.address" x-bind:class="{
+                                'form-input-error':
+                                    fieldError('address')
+                            }" x-bind:aria-invalid="
+                                Boolean(fieldError('address'))
+                            "></textarea>
+
+                    <p x-cloak x-show="fieldError('address')" class="mt-1.5 text-sm text-rose-600"
+                        x-text="fieldError('address')"></p>
+                </div>
+            </div>
+        </form>
+
+        <x-slot:footer>
+            <x-ui.button variant="secondary" x-on:click="closeFormModal()" x-bind:disabled="submitting">
+                Hủy
+            </x-ui.button>
+
+            <x-ui.button type="submit" form="patient-form" x-bind:disabled="submitting">
+                <span x-show="submitting"
+                    class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                    aria-hidden="true"></span>
+
+                <span x-text="
+                            submitting
+                                ? 'Đang lưu…'
+                                : 'Lưu bệnh nhân'
+                        "></span>
+            </x-ui.button>
+        </x-slot:footer>
+    </x-ui.modal>
+
+    {{-- Delete confirmation popup --}}
+    <x-ui.confirm-modal show="deleteTarget" cancel="cancelDelete()" confirm="confirmDelete()" id="patient-delete"
+        title="Xóa bệnh nhân?" busy="deleting" confirm-label="Xóa bệnh nhân" busy-label="Đang xóa…">
+        <p>
+            Hồ sơ
+            <strong x-text="deleteTarget?.full_name"></strong>
+            sẽ không còn xuất hiện trong danh sách.
+        </p>
+
+        <p class="text-xs text-slate-500">
+            Dữ liệu được xóa mềm và không bị xóa vật lý khỏi database.
+        </p>
+    </x-ui.confirm-modal>
 </div>
 @endsection

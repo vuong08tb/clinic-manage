@@ -20,6 +20,6 @@
     ></span>
     <p class="text-sm text-slate-700" x-text="$store.ui.toast?.message"></p>
     <button type="button" class="ml-auto text-slate-400 hover:text-slate-700" x-on:click="$store.ui.dismissToast()" aria-label="Đóng thông báo">
-        <x-ui.icon name="close" class="h-4 w-4" />
+        <x-ui.icon name="close" size="h-4 w-4" />
     </button>
 </div>
