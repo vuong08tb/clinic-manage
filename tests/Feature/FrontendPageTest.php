@@ -47,4 +47,14 @@ class FrontendPageTest extends TestCase
             ->assertOk()
             ->assertSee('Chi tiết bệnh nhân');
     }
+
+    public function test_appointment_index_page_is_available(): void
+    {
+        $this->withoutVite()
+            ->get('/appointments')
+            ->assertOk()
+            ->assertSee(
+                'Quản lý lịch khám của bệnh nhân theo bác sĩ.',
+            );
+    }
 }
