@@ -19,6 +19,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
 // Business endpoints require both authentication and an RBAC permission.
 Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
+    Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus']);
     Route::apiResource('appointments', AppointmentController::class)
         ->only(['index', 'store', 'show', 'update']);
     Route::apiResource('doctors', DoctorController::class);
