@@ -4,8 +4,10 @@ use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\ExaminationController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MedicineController;
 use App\Http\Controllers\PatientController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PrescriptionController;
 use App\Http\Controllers\SpecialtyController;
 use App\Http\Controllers\UserController;
@@ -28,10 +30,18 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::apiResource('examinations', ExaminationController::class)
         ->only(['index', 'store', 'show', 'update']);
     Route::apiResource('doctors', DoctorController::class);
+    Route::patch('/invoices/{invoice}/status', [InvoiceController::class, 'updateStatus']);
+    Route::apiResource('invoices', InvoiceController::class)
+        ->only(['index', 'store', 'show', 'update']);
+    Route::post('/invoices/{invoice}/payments', [PaymentController::class, 'store']);
+    Route::post('/payments/{payment}/capture', [PaymentController::class, 'capture']);
     Route::patch('/medicines/{medicine}/stock', [MedicineController::class, 'adjustStock']);
     Route::apiResource('medicines', MedicineController::class);
     Route::apiResource('patients', PatientController::class);
     Route::post('/prescriptions', [PrescriptionController::class, 'store']);
+    Route::post('/prescriptions/{prescription}/items', [PrescriptionController::class, 'addItem']);
+    Route::match(['put', 'patch'], '/prescriptions/{prescription}/items/{item}', [PrescriptionController::class, 'updateItem']);
+    Route::delete('/prescriptions/{prescription}/items/{item}', [PrescriptionController::class, 'removeItem']);
     Route::apiResource('specialties', SpecialtyController::class);
     Route::patch('/users/{user}/status', [UserController::class, 'updateStatus']);
     Route::apiResource('users', UserController::class);
