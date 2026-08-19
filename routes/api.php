@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\PatientController;
@@ -18,6 +19,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
 // Business endpoints require both authentication and an RBAC permission.
 Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
+    Route::apiResource('appointments', AppointmentController::class)
+        ->only(['index', 'store', 'show', 'update']);
     Route::apiResource('doctors', DoctorController::class);
     Route::apiResource('patients', PatientController::class);
     Route::apiResource('specialties', SpecialtyController::class);
