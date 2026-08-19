@@ -87,8 +87,9 @@ Check docker
 docker ps
 Build migrate created
 docker exec clinic_app php artisan migrate
-docker compose exec app php artisan make:model Appointment -mf
+docker compose exec app php artisan make:model Examination -mf
 docker compose exec app php artisan migrate
+docker compose exec app php artisan migrate:rollback --step=1
 Build migration user current
 docker compose exec \
   --user "$(id -u):$(id -g)" \
@@ -102,7 +103,7 @@ ls -l \
   app/Models/Appointment.php \
   database/factories/PatientFactory.php \
   database/migrations/2026_08_10_020152_create_patients_table.php
-//cập nhật tạo root
+update root
 sudo chown -R $USER:$USER .
 docker compose exec app php artisan route:list --path=appointments
 docker compose exec app composer dump-autoload --optimize
