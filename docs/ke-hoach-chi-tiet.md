@@ -538,12 +538,12 @@ Danh mục chuyên khoa (Nội, Ngoại, Nhi…) là dữ liệu nền để g�
 *Prompt gợi ý (vibe code):* "Migration specialties (name unique, description). CRUD SpecialtyController theo SPECIALTIES.* (ADMIN ghi, các role khác đọc theo ma trận), Form Request + Resource theo kiến trúc B. Dùng làm mẫu resource chuẩn."
 
 **4. Checklist hoàn thành**
-- [ ] Migration `specialties` name unique.
-- [ ] CRUD + `SPECIALTIES.*` đúng ma trận.
+- [x] Migration `specialties` name unique.
+- [x] CRUD + `SPECIALTIES.*` đúng ma trận.
 
 **5. Checklist self-test**
-- [ ] Tạo trùng name → 422.
-- [ ] RECEPTIONIST: `FINDALL/FINDONE` OK, `CREATE` → 403.
+- [x] Tạo trùng name → 422.
+- [x] RECEPTIONIST: `FINDALL/FINDONE` OK, `CREATE` → 403.
 
 ---
 
