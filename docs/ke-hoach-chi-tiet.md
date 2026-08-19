@@ -617,13 +617,13 @@ Hồ sơ bệnh nhân là gốc của mọi lịch khám/phiếu khám. Cần b�
 - **Định dạng và cách sinh `code`:** đề nêu ví dụ `BN-000123` nhưng không quy định thuật toán sinh (sequence tăng dần? theo năm? padding mấy số?). Cần chốt định dạng và cơ chế sinh đảm bảo UNIQUE (khuyến nghị Postgres `SEQUENCE` hoặc `BN-` + id zero-pad) — xác nhận với mentor.
 
 **4. Checklist hoàn thành**
-- [ ] Bảng `patients` đủ cột + `code` UNIQUE + soft delete.
-- [ ] CHECK `gender`.
-- [ ] Index phục vụ search.
+- [x] Bảng `patients` đủ cột + `code` UNIQUE + soft delete.
+- [x] CHECK `gender`.
+- [x] Index phục vụ search.
 
 **5. Checklist self-test**
-- [ ] Insert `gender` sai → lỗi CHECK.
-- [ ] Soft delete rồi query mặc định không thấy.
+- [x] Insert `gender` sai → lỗi CHECK.
+- [x] Soft delete rồi query mặc định không thấy.
 
 ---
 
@@ -652,14 +652,14 @@ CRUD bệnh nhân + tìm kiếm một-tham-số `q` gộp nhiều tiêu chí (t�
 *Prompt gợi ý (vibe code):* "CRUD Patients + PATIENTS.* (RECEPTIONIST ghi, CASHIER/DOCTOR đọc, ADMIN xóa). index search theo q (full_name ILIKE, phone, code) + phân trang meta. store tự sinh code. destroy soft delete. Dùng query scope."
 
 **4. Checklist hoàn thành**
-- [ ] CRUD + search `q` hoạt động.
-- [ ] Phân quyền đúng ma trận.
-- [ ] `store` tự sinh `code`; `destroy` soft delete.
+- [x] CRUD + search `q` hoạt động.
+- [x] Phân quyền đúng ma trận.
+- [x] `store` tự sinh `code`; `destroy` soft delete.
 
 **5. Checklist self-test**
-- [ ] `?q=` khớp theo tên/SĐT/mã.
-- [ ] CASHIER `POST /api/patients` → 403.
-- [ ] List có `meta` phân trang.
+- [x] `?q=` khớp theo tên/SĐT/mã.
+- [x] CASHIER `POST /api/patients` → 403.
+- [x] List có `meta` phân trang.
 
 ---
 

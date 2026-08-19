@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DoctorController;
+use App\Http\Controllers\PatientController;
 use App\Http\Controllers\SpecialtyController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -18,6 +19,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 // Business endpoints require both authentication and an RBAC permission.
 Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::apiResource('doctors', DoctorController::class);
+    Route::apiResource('patients', PatientController::class);
     Route::apiResource('specialties', SpecialtyController::class);
     Route::patch('/users/{user}/status', [UserController::class, 'updateStatus']);
     Route::apiResource('users', UserController::class);
