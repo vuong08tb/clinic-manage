@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Constants\DoctorMessage;
 use App\Constants\UserMessage;
 use App\Models\Role;
 use App\Models\User;
@@ -96,6 +97,10 @@ class UserService
             $user,
             'role_id',
             function (User $lockedUser) use ($data): void {
+                $this->assertDoctorRoleChangeAllowed(
+                    $lockedUser,
+                    (int) $data['role_id'],
+                );
                 $lockedUser->update($data);
             },
             (int) $data['role_id'],
@@ -219,6 +224,28 @@ class UserService
 
         throw ValidationException::withMessages([
             $field => [$message],
+        ]);
+    }
+
+    /**
+     * Prevent a doctor profile from being assigned to a non-doctor user.
+     *
+     * @throws ValidationException
+     */
+    private function assertDoctorRoleChangeAllowed(User $user, int $newRoleId): void
+    {
+        if (! $user->doctor()->exists()) {
+            return;
+        }
+
+        $newRoleName = Role::query()->whereKey($newRoleId)->value('name');
+
+        if ($newRoleName === 'DOCTOR') {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'role_id' => [DoctorMessage::USER_WITH_PROFILE_MUST_KEEP_DOCTOR_ROLE],
         ]);
     }
 }
