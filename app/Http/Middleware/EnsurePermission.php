@@ -2,10 +2,12 @@
 
 namespace App\Http\Middleware;
 
+use App\Constants\ExceptionMessage;
 use Closure;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class EnsurePermission
 {
@@ -16,12 +18,14 @@ class EnsurePermission
     {
         $user = $request->user();
         if ($user === null) {
-            abort(401, 'Unauthenticated.');
+            throw new AuthenticationException(ExceptionMessage::UNAUTHENTICATED);
         }
 
         $routeAction = $request->route()?->getActionName();
         if ($routeAction === null || ! str_contains($routeAction, '@')) {
-            return $this->forbidden('Permission mapping is not available for this route.');
+            throw new AccessDeniedHttpException(
+                ExceptionMessage::ROUTE_PERMISSION_MAPPING_UNAVAILABLE,
+            );
         }
 
         [$controllerClass, $method] = explode('@', $routeAction, 2);
@@ -35,7 +39,10 @@ class EnsurePermission
         $resource = config("rbac.controllers.{$controller}");
 
         if ($resource === null) {
-            return $this->forbidden("Permission mapping is not available for {$controller}.");
+            throw new AccessDeniedHttpException(sprintf(
+                ExceptionMessage::CONTROLLER_PERMISSION_MAPPING_UNAVAILABLE,
+                $controller,
+            ));
         }
 
         $action = config("rbac.actions.{$method}", strtoupper($method));
@@ -50,18 +57,12 @@ class EnsurePermission
     private function authorize(Request $request, Closure $next, string $permission): Response
     {
         if (! $request->user()->hasPermission($permission)) {
-            return $this->forbidden("Missing permission: {$permission}");
+            throw new AccessDeniedHttpException(sprintf(
+                ExceptionMessage::MISSING_PERMISSION,
+                $permission,
+            ));
         }
 
         return $next($request);
-    }
-
-    private function forbidden(string $message): JsonResponse
-    {
-        return response()->json([
-            'success' => false,
-            'message' => $message,
-            'errors' => [],
-        ], 403);
     }
 }

@@ -2,21 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Concerns\ApiResponse;
+use App\Constants\AuthMessage;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\UserResource;
+use App\Http\Responses\ApiResponse;
 use App\Models\User;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Expose login, logout, and current-user endpoints for Sanctum authentication.
  */
 class AuthController extends Controller
 {
-    use ApiResponse;
-
     /**
      * Create a new authentication controller instance.
      */
@@ -29,11 +29,11 @@ class AuthController extends Controller
     {
         $result = $this->service->login($request->validated());
 
-        return $this->ok([
+        return ApiResponse::success([
             'token' => $result['token'],
             'token_type' => 'Bearer',
-            'user' => new UserResource($result['user']),
-        ], 'Logged in');
+            'user' => (new UserResource($result['user']))->resolve($request),
+        ], AuthMessage::LOGGED_IN, Response::HTTP_OK);
     }
 
     /**
@@ -45,7 +45,10 @@ class AuthController extends Controller
         $user = $request->user();
         $this->service->logout($user);
 
-        return $this->ok(message: 'Logged out');
+        return ApiResponse::success(
+            message: AuthMessage::LOGGED_OUT,
+            status: Response::HTTP_OK,
+        );
     }
 
     /**
@@ -56,9 +59,10 @@ class AuthController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        return $this->ok(
+        return ApiResponse::resource(
             new UserResource($this->service->currentUser($user)),
-            'Current user retrieved',
+            AuthMessage::CURRENT_USER_RETRIEVED,
+            Response::HTTP_OK,
         );
     }
 }
