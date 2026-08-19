@@ -153,3 +153,10 @@ Alpine.start();
 - [ ] Ẩn/hiện nút theo permission (UX), backend vẫn enforce.
 - [ ] Demo đọc được 1 luồng (stats + danh sách).
 - [ ] Không hard-code token/secret trong JS.
+
+## 8. Comment code 
+
+- Sinh comment code theo chuẩn chuyên nghiệp dành cho PHP/Laravel, tuân theo PSR-12 và phong cách của các dự án doanh nghiệp.
+- Comment song ngữ tiếng việt và tiếng anh như sau
+- Comment sử dụng **tiếng Anh**, ngắn gọn, rõ ràng và mang tính kỹ thuật. Đặt phía trước comment tiếng việt
+- Comment sử dung **tiếng việt**, ngược lại cần đầy đủ mô tả chi tiết để đọc hiểu 

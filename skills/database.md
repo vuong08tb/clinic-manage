@@ -201,3 +201,13 @@ $lowStock   = Medicine::where('stock', '<=', 10)->count();
 - [ ] Seeder/data-migration idempotent, `migrate:fresh --seed` sạch.
 - [ ] Stats dùng aggregate.
 - [ ] Transaction + `lockForUpdate` cho trừ kho.
+
+## 10. Comment code 
+
+### Mục tiêu
+
+Sinh comment code theo chuẩn chuyên nghiệp dành cho PHP/Laravel, tuân theo PSR-12 và phong cách của các dự án doanh nghiệp.
+Toàn bộ comment phải sử dụng **tiếng Anh**, ngắn gọn, rõ ràng và mang tính kỹ thuật.
+
+### Phạm vi comment
+Method, Controller, Service, Class, Constructor
