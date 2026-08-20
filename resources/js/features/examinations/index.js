@@ -77,6 +77,10 @@ export function examinationIndexPage() {
             return this.$store.auth.can(PERMISSIONS.EXAMINATIONS.UPDATE);
         },
 
+        get canCreatePrescription() {
+            return this.$store.auth.can(PERMISSIONS.PRESCRIPTIONS.CREATE);
+        },
+
         get visiblePages() {
             return calculateVisiblePages(this.meta);
         },
@@ -482,6 +486,16 @@ export function examinationIndexPage() {
 
             this.closeDetailModal();
             this.openEditModal(examination);
+        },
+
+        goToCreatePrescription() {
+            const examination = this.detail;
+
+            if (!examination) {
+                return;
+            }
+
+            window.location.href = `/prescriptions?examination_id=${examination.id}`;
         },
 
         handleEscape() {

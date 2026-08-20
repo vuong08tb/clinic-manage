@@ -6,6 +6,7 @@ import { createAuthStore } from "./stores/auth-store";
 import { createUiStore } from "./stores/ui-store";
 import { appointmentIndexPage } from "./features/appointments";
 import { examinationIndexPage } from "./features/examinations";
+import { prescriptionIndexPage } from "./features/prescriptions";
 
 window.Alpine = Alpine;
 
@@ -18,6 +19,7 @@ document.addEventListener("alpine:init", () => {
     Alpine.data("patientIndexPage", patientIndexPage);
     Alpine.data("appointmentIndexPage", appointmentIndexPage);
     Alpine.data("examinationIndexPage", examinationIndexPage);
+    Alpine.data("prescriptionIndexPage", prescriptionIndexPage);
 });
 
 Alpine.start();

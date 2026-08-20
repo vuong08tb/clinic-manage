@@ -90,6 +90,13 @@ export function formatNumber(value) {
     return new Intl.NumberFormat("vi-VN").format(value ?? 0);
 }
 
+export function formatCurrency(value) {
+    return new Intl.NumberFormat("vi-VN", {
+        style: "currency",
+        currency: "VND",
+    }).format(value ?? 0);
+}
+
 export function genderLabel(gender) {
     return GENDER_LABELS[gender] ?? "Không xác định";
 }

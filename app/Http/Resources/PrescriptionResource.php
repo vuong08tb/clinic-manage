@@ -4,10 +4,8 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Http\Resources\ExaminationResource; 
 
-/**
- * Transform a prescription and its items into its public API representation.
- */
 class PrescriptionResource extends JsonResource
 {
     /**
@@ -24,6 +22,7 @@ class PrescriptionResource extends JsonResource
             'notes' => $this->notes,
             'items' => PrescriptionItemResource::collection($this->whenLoaded('items')),
             'doctor' => new DoctorResource($this->whenLoaded('doctor')),
+            'examination' => new ExaminationResource($this->whenLoaded('examination')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];
