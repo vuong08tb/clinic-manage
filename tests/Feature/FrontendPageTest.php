@@ -60,6 +60,26 @@ class FrontendPageTest extends TestCase
             );
     }
 
+    public function test_prescription_index_page_is_available(): void
+    {
+        $this->withoutVite()
+            ->get('/prescriptions')
+            ->assertOk()
+            ->assertSee(
+                'Toa thuốc được kê từ phiếu khám, quản lý thuốc trong toa và tồn kho.',
+            );
+    }
+
+    public function test_medicine_index_page_is_available(): void
+    {
+        $this->withoutVite()
+            ->get('/medicines')
+            ->assertOk()
+            ->assertSee(
+                'Danh mục thuốc, tồn kho và điều chỉnh nhập/xuất.',
+            );
+    }
+
     /**
      * Add/edit/detail live in modals on the list page, so every feature renders
      * the shared modal shell instead of extra create/detail routes.
@@ -70,6 +90,8 @@ class FrontendPageTest extends TestCase
             '/patients' => ['patient-form-modal-title', 'patient-detail-title'],
             '/appointments' => ['appointment-form-modal-title', 'appointment-detail-title'],
             '/examinations' => ['examination-form-modal-title', 'examination-detail-title'],
+            '/prescriptions' => ['prescription-form-modal-title', 'prescription-detail-title'],
+            '/medicines' => ['medicine-form-modal-title', 'medicine-detail-title', 'medicine-stock-modal-title'],
         ];
 
         foreach ($pages as $url => $modalTitleIds) {

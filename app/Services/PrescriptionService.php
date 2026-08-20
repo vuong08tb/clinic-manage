@@ -11,12 +11,49 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
  * Handle prescription creation and stock-affecting business rules.
  */
 class PrescriptionService
 {
+        /**
+     * Paginate prescriptions with validated filters and eager-loaded clinical context.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    public function paginate(array $filters): LengthAwarePaginator
+    {
+        return Prescription::query()
+            ->with(['items.medicine', 'doctor.user', 'examination.patient'])
+            ->when(
+                isset($filters['examination_id']),
+                fn ($query) => $query->where('examination_id', $filters['examination_id']),
+            )
+            ->when(
+                isset($filters['doctor_id']),
+                fn ($query) => $query->where('doctor_id', $filters['doctor_id']),
+            )
+            ->when(
+                isset($filters['patient_id']),
+                fn ($query) => $query->whereHas(
+                    'examination',
+                    fn ($examinationQuery) => $examinationQuery->where('patient_id', $filters['patient_id']),
+                ),
+            )
+            ->orderByDesc('id')
+            ->paginate((int) ($filters['per_page'] ?? 15));
+    }
+
+    /**
+     * Load the relationships required by the prescription resource.
+     */
+    public function load(Prescription $prescription): Prescription
+    {
+        return $prescription->loadMissing(['items.medicine', 'doctor.user', 'examination.patient']);
+    }
+
     /**
      * Create a prescription from an examination, deducting stock for any supplied items.
      *

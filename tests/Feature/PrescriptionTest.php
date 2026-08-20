@@ -701,6 +701,71 @@ class PrescriptionTest extends TestCase
     }
 
     /**
+     * Verify prescriptions can be filtered by patient and doctor and are paginated.
+     */
+    public function test_index_filters_by_patient_and_doctor(): void
+    {
+        $prescription = Prescription::factory()->create();
+
+        Sanctum::actingAs($prescription->doctor->user);
+
+        $this->getJson("/api/prescriptions?doctor_id={$prescription->doctor_id}")
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $prescription->id);
+
+        $patientId = $prescription->examination->patient_id;
+
+        $this->getJson("/api/prescriptions?patient_id={$patientId}")
+            ->assertOk()
+            ->assertJsonPath('data.0.examination.patient.id', $patientId);
+    }
+
+    /**
+     * Verify a prescription's detail response includes items, medicine, doctor, and examination context.
+     */
+    public function test_show_returns_prescription_with_context(): void
+    {
+        $prescription = Prescription::factory()->create();
+
+        Sanctum::actingAs($prescription->doctor->user);
+
+        $this->getJson("/api/prescriptions/{$prescription->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $prescription->id)
+            ->assertJsonPath('data.doctor.id', $prescription->doctor_id)
+            ->assertJsonPath('data.examination.id', $prescription->examination_id);
+    }
+
+    /**
+     * Verify roles without the list/detail permission cannot browse prescriptions.
+     */
+    public function test_roles_without_permission_cannot_list_or_view_prescriptions(): void
+    {
+        $prescription = Prescription::factory()->create();
+
+        Sanctum::actingAs($this->createUser('RECEPTIONIST'));
+
+        $this->getJson('/api/prescriptions')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Missing permission: PRESCRIPTIONS.FINDALL');
+
+        $this->getJson("/api/prescriptions/{$prescription->id}")
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Missing permission: PRESCRIPTIONS.FINDONE');
+    }
+
+    /**
+     * Verify unauthenticated requests to list/detail endpoints are rejected.
+     */
+    public function test_unauthenticated_requests_to_list_and_show_are_rejected(): void
+    {
+        $prescription = Prescription::factory()->create();
+
+        $this->getJson('/api/prescriptions')->assertUnauthorized();
+        $this->getJson("/api/prescriptions/{$prescription->id}")->assertUnauthorized();
+    }
+
+    /**
      * Create a user assigned to the requested seeded role.
      */
     private function createUser(string $role): User

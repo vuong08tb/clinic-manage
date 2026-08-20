@@ -21,14 +21,15 @@ request()->routeIs('dashboard'), 'permissions' => [], 'ready' => true],
 'items' => [
 ['label' => 'Phiếu khám', 'icon' => 'examination', 'href' => route('web.examinations.index'),
 'active' => request()->routeIs('web.examinations.*'), 'permissions' => ['EXAMINATIONS.FINDALL'], 'ready' => true],
-['label' => 'Toa thuốc', 'icon' => 'prescription', 'permissions' => ['PRESCRIPTIONS.FINDALL', 'PRESCRIPTIONS.CREATE'],
-'ready' => false],
+['label' => 'Toa thuốc', 'icon' => 'prescription', 'href' => route('web.prescriptions.index'),
+'active' => request()->routeIs('web.prescriptions.*'), 'permissions' => ['PRESCRIPTIONS.FINDALL'], 'ready' => true],
 ],
 ],
 [
 'label' => 'Dược',
 'items' => [
-['label' => 'Kho thuốc', 'icon' => 'medicine', 'permissions' => ['MEDICINES.FINDALL'], 'ready' => false],
+['label' => 'Kho thuốc', 'icon' => 'medicine', 'href' => route('web.medicines.index'),
+'active' => request()->routeIs('web.medicines.*'), 'permissions' => ['MEDICINES.FINDALL'], 'ready' => true],
 ],
 ],
 [

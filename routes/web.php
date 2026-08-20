@@ -16,3 +16,9 @@ Route::view('/appointments', 'pages.appointments.index')
 
 Route::view('/examinations', 'pages.examinations.index')
     ->name('web.examinations.index');
+
+Route::view('/prescriptions', 'pages.prescriptions.index')
+    ->name('web.prescriptions.index');
+
+Route::view('/medicines', 'pages.medicines.index')
+    ->name('web.medicines.index');

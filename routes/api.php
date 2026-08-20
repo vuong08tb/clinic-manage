@@ -38,6 +38,8 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::patch('/medicines/{medicine}/stock', [MedicineController::class, 'adjustStock']);
     Route::apiResource('medicines', MedicineController::class);
     Route::apiResource('patients', PatientController::class);
+    Route::get('/prescriptions', [PrescriptionController::class, 'index']);
+    Route::get('/prescriptions/{prescription}', [PrescriptionController::class, 'show']);
     Route::post('/prescriptions', [PrescriptionController::class, 'store']);
     Route::post('/prescriptions/{prescription}/items', [PrescriptionController::class, 'addItem']);
     Route::match(['put', 'patch'], '/prescriptions/{prescription}/items/{item}', [PrescriptionController::class, 'updateItem']);

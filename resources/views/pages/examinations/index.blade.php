@@ -230,6 +230,10 @@
             <x-ui.button x-show="canUpdate" x-on:click="editFromDetail()">
                 Sửa phiếu khám
             </x-ui.button>
+
+            <x-ui.button x-show="canCreatePrescription" x-on:click="goToCreatePrescription()">
+                Tạo toa thuốc
+            </x-ui.button>
         </x-slot:footer>
     </x-ui.modal>
 

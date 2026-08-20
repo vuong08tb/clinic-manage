@@ -23,6 +23,8 @@ const STATUS_LABELS = {
     paid: "Đã thanh toán",
     unpaid: "Chưa thanh toán",
     failed: "Thất bại",
+    active: "Đang bán",
+    inactive: "Ngừng bán",
 };
 
 const STATUS_CLASSES = {
@@ -32,9 +34,15 @@ const STATUS_CLASSES = {
     confirmed: "bg-blue-50 text-blue-700 ring-blue-600/20",
     completed: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
     paid: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+    active: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
     cancelled: "bg-rose-50 text-rose-700 ring-rose-600/20",
     failed: "bg-rose-50 text-rose-700 ring-rose-600/20",
+    inactive: "bg-slate-100 text-slate-600 ring-slate-500/20",
 };
+
+// A medicine is "low" once its stock drops to this many units or fewer —
+// used only for the stock badge, not enforced by the backend.
+const LOW_STOCK_THRESHOLD = 10;
 
 const GENDER_LABELS = {
     male: "Nam",
@@ -90,6 +98,13 @@ export function formatNumber(value) {
     return new Intl.NumberFormat("vi-VN").format(value ?? 0);
 }
 
+export function formatCurrency(value) {
+    return new Intl.NumberFormat("vi-VN", {
+        style: "currency",
+        currency: "VND",
+    }).format(value ?? 0);
+}
+
 export function genderLabel(gender) {
     return GENDER_LABELS[gender] ?? "Không xác định";
 }
@@ -102,6 +117,34 @@ export function statusClasses(status) {
     return (
         STATUS_CLASSES[status] ?? "bg-slate-50 text-slate-700 ring-slate-600/20"
     );
+}
+
+export function stockLabel(stock) {
+    const value = Number(stock ?? 0);
+
+    if (value <= 0) {
+        return "Hết hàng";
+    }
+
+    if (value <= LOW_STOCK_THRESHOLD) {
+        return `Sắp hết (${formatNumber(value)})`;
+    }
+
+    return `Còn hàng (${formatNumber(value)})`;
+}
+
+export function stockClasses(stock) {
+    const value = Number(stock ?? 0);
+
+    if (value <= 0) {
+        return "bg-rose-50 text-rose-700 ring-rose-600/20";
+    }
+
+    if (value <= LOW_STOCK_THRESHOLD) {
+        return "bg-amber-50 text-amber-700 ring-amber-600/20";
+    }
+
+    return "bg-emerald-50 text-emerald-700 ring-emerald-600/20";
 }
 
 export function localDateTimeInput(date = new Date()) {

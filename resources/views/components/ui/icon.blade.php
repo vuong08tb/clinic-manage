@@ -104,6 +104,12 @@
         @case('clinic')
             <path d="M4 21V7l8-4 8 4v14M9 21v-5h6v5M9 9h6M12 6v6" />
             @break
+        @case('plus')
+            <path d="M12 5v14M5 12h14" />
+            @break
+        @case('swap')
+            <path d="M7 17V7m0 0-3 3m3-3 3 3M17 7v10m0 0 3-3m-3 3-3-3" />
+            @break
         @default
             <circle cx="12" cy="12" r="9" />
     @endswitch

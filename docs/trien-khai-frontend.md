@@ -302,21 +302,21 @@ Mục tiêu: dashboard role-aware, không gọi endpoint người dùng không c
 
 ### FE-06 — Toa thuốc
 
-- [ ] Bổ sung/xác nhận API list và detail toa thuốc trước khi làm UI danh sách.
-- [ ] Modal tạo toa từ phiếu khám (`size="xl"`).
-- [ ] Bảng medicine item editable.
-- [ ] Thêm/sửa/xóa item theo permission.
-- [ ] Hiển thị tồn kho và lỗi vượt tồn kho.
-- [ ] Có confirm khi xóa item.
+- [x] Bổ sung/xác nhận API list và detail toa thuốc trước khi làm UI danh sách.
+- [x] Modal tạo toa từ phiếu khám (`size="xl"`).
+- [x] Bảng medicine item editable.
+- [x] Thêm/sửa/xóa item theo permission.
+- [x] Hiển thị tồn kho và lỗi vượt tồn kho.
+- [x] Có confirm khi xóa item.
 
 ### FE-07 — Kho thuốc
 
-- [ ] Danh sách/search/filter tồn kho/pagination.
-- [ ] Badge tồn kho và trạng thái active.
-- [ ] Modal thêm/sửa thuốc.
-- [ ] Modal điều chỉnh tồn kho có lý do/số lượng rõ ràng.
-- [ ] Confirm trước thao tác xóa.
-- [ ] Action theo `MEDICINES.*`.
+- [x] Danh sách/search/filter tồn kho/pagination.
+- [x] Badge tồn kho và trạng thái active.
+- [x] Modal thêm/sửa thuốc.
+- [x] Modal điều chỉnh tồn kho có lý do/số lượng rõ ràng.
+- [x] Confirm trước thao tác xóa.
+- [x] Action theo `MEDICINES.*`.
 
 ### FE-08 — Hóa đơn và thanh toán
 
@@ -362,7 +362,6 @@ Các capability đã có trong tài liệu/RBAC nhưng chưa có route tương �
 
 - `GET /api/stats` cho dashboard aggregate.
 - `GET /api/roles` cho role selector.
-- API list/detail toa thuốc cho bác sĩ và dược sĩ.
 - API list/detail thanh toán nếu cần màn hình giao dịch độc lập.
 - PayPal return/cancel route riêng cho frontend.
 
@@ -556,3 +555,91 @@ Kiểm chứng:
 - Dưới breakpoint `md` tooltip trở lại dạng text inline luôn hiện (card mobile không có hover).
 - `aria-label` trên button giữ nguyên, `<span role="tooltip" aria-hidden="true">` chỉ để hiển thị.
 - `npm run build`, `php artisan view:cache`, `FrontendPageTest` (8 pass) đều sạch.
+
+### 2026-08-20 — FE-06 (Toa thuốc)
+
+- Đóng API gap đầu tiên trong checklist: `PrescriptionController` chỉ có `store`/`addItem`/
+  `updateItem`/`removeItem`, chưa có `index`/`show`. Thêm `ListPrescriptionsRequest` (filter
+  `examination_id`, `doctor_id`, `patient_id` — `patient_id` không phải cột trên bảng
+  `prescriptions` nên lọc qua `whereHas('examination', ...)`), `PrescriptionService::paginate()`/
+  `load()`, 2 route GET, và bổ sung field `examination` (lồng `ExaminationResource`, có sẵn
+  `patient`) vào `PrescriptionResource`. Quyền `PRESCRIPTIONS.FINDALL`/`FINDONE` đã có sẵn trong
+  `RbacSeeder` cho DOCTOR/PHARMACIST và `config/rbac.php` đã map `index -> FINDALL`,
+  `show -> FINDONE` cho `PrescriptionController` từ trước — không phải sửa RBAC.
+- Hoàn thiện FE-06: trang `/prescriptions` có filter bác sĩ/bệnh nhân, modal tạo toa (`size="xl"`)
+  từ phiếu khám (deep link `?examination_id=` từ chi tiết phiếu khám, hoặc picker 2 bước tìm bệnh
+  nhân rồi chọn phiếu khám vì API `examinations` không có filter `q`), modal chi tiết (`size="xl"`)
+  quản lý danh sách thuốc trong toa. Action theo `PRESCRIPTIONS.*`/`MEDICINES.FINDALL`.
+- **Không có action "Sửa" ở cấp toa thuốc**: `PRESCRIPTIONS.UPDATE` đã được seed trong RBAC nhưng
+  `PrescriptionController` chưa có method `update()`. Cột "Thao tác" của danh sách chỉ có "Xem";
+  sửa/xóa thật sự diễn ra ở cấp **item** bên trong modal chi tiết, đúng theo API hiện có.
+- Bảng thuốc "editable" có 2 cơ chế khác nhau tùy ngữ cảnh, vì backend không có endpoint cập nhật
+  hàng loạt `items`: trong **modal tạo** (`formOpen`), thuốc thêm vào là **nháp cục bộ** (chưa gọi
+  API, chỉ gửi kèm mảng `items` khi submit `POST /prescriptions`); trong **modal chi tiết**
+  (`detailOpen`), mỗi thao tác thêm/sửa/xóa gọi thẳng API item tương ứng
+  (`addItem`/`updateItem`/`removeItem`) và load lại chi tiết. Form thêm thuốc dùng chung 1
+  component Blade (`x-prescriptions.item-draft-form`, không nhận props, đọc thẳng state Alpine của
+  trang cha) vì UI giống hệt nhau ở cả 2 nơi — hàm `addItemFromDraft()` rẽ nhánh theo
+  `this.detailOpen`.
+- Confirm popup **chỉ** áp dụng khi xóa item đã lưu (modal chi tiết, có hoàn tồn kho qua API —
+  hành động thật). Xóa dòng thuốc nháp trong modal tạo (chưa có gì xảy ra) không cần confirm.
+- Lỗi field không đồng nhất từ backend cho `addItem`: `deductStockAndCreateItem` dùng chung giữa
+  `store` (bulk) và `addItem` (đơn lẻ) nên lỗi "thuốc không active"/"không đủ tồn" trả field
+  `items` dù `addItem` không nhận mảng. `describeItemError()` trong `features/prescriptions/index.js`
+  thử lần lượt `medicine_id` -> `quantity` -> `items` -> message chung để không mất thông báo lỗi.
+- Thêm nút "Tạo toa thuốc" vào footer modal chi tiết phiếu khám (`/examinations`), trỏ tới
+  `/prescriptions?examination_id=<id>` — đóng luồng chéo giống cách FE-05 từng thêm "Tạo phiếu
+  khám" vào chi tiết lịch hẹn. Không ẩn nút khi phiếu khám đã có toa (API `examinations` hiện
+  không trả `has_prescription`); nếu chọn phiếu khám đã có toa, backend trả `422` field
+  `examination_id` và hiển thị đúng dưới ô chọn phiếu khám — giữ đúng nguyên tắc "backend là nguồn
+  sự thật cuối cùng" của tài liệu, cố tình không sửa `ExaminationResource` cho việc này.
+- Thêm `core/permissions.js` (`PERMISSIONS.PRESCRIPTIONS.*` đầy đủ trừ `UPDATE` — chưa dùng đến;
+  `PERMISSIONS.MEDICINES.FINDALL/FINDONE` cho combobox tìm thuốc, FE-07 sẽ bổ sung
+  `CREATE/UPDATE/DELETE/ADJUSTSTOCK`) và `core/formatters.js` (`formatCurrency`, định dạng VND
+  dùng chung cho các feature liên quan tiền sau này).
+- Self-test: thêm `test_prescription_index_page_is_available` vào `FrontendPageTest.php`
+  (8 pass), và 4 test vào `PrescriptionTest.php` cho `index`/`show`
+  (`test_index_filters_by_patient_and_doctor`, `test_show_returns_prescription_with_context`,
+  `test_roles_without_permission_cannot_list_or_view_prescriptions`,
+  `test_unauthenticated_requests_to_list_and_show_are_rejected`) — `PrescriptionTest` 33 pass.
+- `npm run build`, `php artisan view:cache` sạch. Full backend suite: 198/207 pass; 9 fail vẫn là
+  `AppointmentTest` do fixture ngày cố định `2026-08-15` nay đã ở quá khứ so với ngày chạy test
+  (2026-08-20) — lỗi có sẵn từ trước (đã ghi nhận từ FE-03), không phải regression của FE-06.
+
+### 2026-08-20 — FE-07 (Kho thuốc)
+
+- Backend đã đầy đủ CRUD + `adjustStock` từ trước (không có API gap như FE-06), nên FE-07 chỉ là
+  frontend thuần: trang `/medicines` có search + filter `stock_status` (`in_stock`/`out_of_stock`,
+  đúng theo `ListMedicinesRequest`) + phân trang, bảng có badge tồn kho và badge trạng thái, modal
+  thêm/sửa, modal điều chỉnh tồn kho riêng, confirm popup khi xóa (soft delete). Action theo
+  `MEDICINES.*`.
+- **Quyết định quan trọng: tách "sửa thuốc" khỏi "điều chỉnh tồn kho"**. API cho phép sửa `stock`
+  trực tiếp qua `PATCH /medicines/{id}` (như mọi field khác) lẫn qua endpoint riêng
+  `PATCH /medicines/{id}/stock` (nhận `quantity` dạng delta ± và `note`). Nếu form "Sửa thuốc" cho
+  sửa `stock` trực tiếp thì sẽ tồn tại 2 đường thay đổi tồn kho xung đột nhau và không ai bắt buộc
+  phải nhập lý do. Đã chốt: field `stock` **chỉ xuất hiện trong form khi tạo mới** (tồn kho ban
+  đầu, bắt buộc theo `StoreMedicineRequest`); sau khi tạo, tồn kho là read-only ở form sửa và chỉ
+  đổi được qua modal "Điều chỉnh tồn kho" (chọn Nhập thêm/Xuất bớt, nhập số lượng dương, xem trước
+  tồn kho sau điều chỉnh, có ô lý do). `medicine-form.js` tách rõ `createPayload()` (có `stock`)
+  và `updatePayload()` (không có `stock`) để không thể vô tình gửi nhầm.
+- **Lưu ý về field `note`**: `AdjustMedicineStockRequest` validate `note` nhưng
+  `MedicineService::adjustStock()` không lưu nó vào đâu cả — bảng `medicines` không có cột log,
+  cũng không có bảng lịch sử điều chỉnh tồn kho. UI vẫn thu thập và gửi `note` (đúng yêu cầu
+  checklist "có lý do rõ ràng" và đúng field API chấp nhận), nhưng cần biết trước: lý do nhập vào
+  hiện **không được lưu lại** ở đâu để tra cứu sau này. Nếu cần audit trail thật, phải bổ sung bảng
+  `medicine_stock_adjustments` (hoặc tương tự) ở backend — ngoài phạm vi FE-07.
+- Bổ sung `active`/`inactive` vào `STATUS_LABELS`/`STATUS_CLASSES` trong `core/formatters.js` —
+  trước đó 2 khóa này được nhắc trong tài liệu (mục 3.2) nhưng chưa feature nào dùng đến. Thêm mới
+  `stockLabel()`/`stockClasses()` (ngưỡng `LOW_STOCK_THRESHOLD = 10`, chỉ ảnh hưởng badge hiển thị,
+  không phải rule nghiệp vụ backend) vì tồn kho là dữ liệu số, không khớp được với cặp
+  `statusLabel`/`statusClasses` vốn thiết kế cho tập nhãn cố định.
+- Thêm icon `swap` (mũi tên lên/xuống) cho nút "Điều chỉnh tồn kho" trong cột "Thao tác" — phân
+  biệt với "Sửa" (`edit`).
+- `core/permissions.js`: bổ sung `CREATE/UPDATE/DELETE/ADJUSTSTOCK` vào `PERMISSIONS.MEDICINES`
+  (trước đó FE-06 mới thêm `FINDALL`/`FINDONE` cho combobox tìm thuốc trong toa).
+- Self-test: thêm `test_medicine_index_page_is_available` và `/medicines` (3 modal id: form, detail,
+  stock) vào `test_feature_pages_render_modal_shells` trong `FrontendPageTest.php` — 10 pass.
+  `MedicineTest.php` (có sẵn, không viết mới) đã đủ RBAC theo role được phép/bị từ chối cho
+  medicines, kể cả `DOCTOR` chỉ đọc và `RECEPTIONIST`/`CASHIER` không có quyền truy cập.
+- `npm run build`, `php artisan view:cache` sạch. Full backend suite: 199/208 pass; 9 fail vẫn là
+  `AppointmentTest` do fixture ngày cố định, có sẵn từ trước, không phải regression của FE-07.
