@@ -643,3 +643,36 @@ Kiểm chứng:
   medicines, kể cả `DOCTOR` chỉ đọc và `RECEPTIONIST`/`CASHIER` không có quyền truy cập.
 - `npm run build`, `php artisan view:cache` sạch. Full backend suite: 199/208 pass; 9 fail vẫn là
   `AppointmentTest` do fixture ngày cố định, có sẵn từ trước, không phải regression của FE-07.
+
+### 2026-08-20 — Sửa lỗi hệ thống: sai lệch 7 giờ ở `scheduled_at`/`examined_at`
+
+- **Phát hiện qua QA thủ công FE-06/FE-07**: tạo lịch hẹn `11:00` VN nhưng danh sách và DB đều
+  hiện `04:00`. Không phải lỗi frontend (`fromLocalDateTimeInput` trong `appointment-form.js` tính
+  đúng UTC gửi lên) — lỗi nằm ở `config('app.timezone')`.
+- **Nguyên nhân gốc**: `.env` chưa từng set `APP_TIMEZONE`, nên rơi về default
+  `Asia/Ho_Chi_Minh` trong `config/app.php` (không phải `UTC` như nhật ký FE-04 từng ghi nhầm).
+  Cột `scheduled_at`/`examined_at` là `timestamp` (không kèm timezone) nên Postgres lưu nguyên văn
+  chuỗi số Laravel format ra, không tự quy đổi. Khi **ghi**: Carbon nhận chuỗi UTC có hậu tố `Z` từ
+  frontend, format ra DB đúng số UTC (bước này không phụ thuộc `app.timezone`). Khi **đọc lại**:
+  Carbon dùng `app.timezone` hiện tại để diễn giải số vừa đọc — với `Asia/Ho_Chi_Minh` thì con số
+  UTC đó bị hiểu nhầm thành giờ VN, lệch thêm 7 tiếng lần thứ hai. Đã tái hiện bằng Carbon thuần
+  (không cần DB) và xác nhận chính xác cơ chế.
+- **Fix**: thêm `APP_TIMEZONE=UTC` vào `.env`, `php artisan config:clear`. Vì bug chỉ nằm ở bước
+  *đọc*, dữ liệu cũ đã lưu (số UTC đúng, chỉ bị đọc sai) tự động hiển thị đúng trở lại sau khi sửa
+  — không cần backfill DB.
+- **Đánh đổi cần biết**: `created_at`/`updated_at` (sinh bằng `now()`, ghi/đọc luôn cùng
+  `app.timezone` nên tự nhất quán dưới cấu hình cũ) sẽ hiển thị lệch +7 giờ cho các bản ghi **tạo
+  trước** thời điểm sửa này; bản ghi tạo sau thì đúng ở mọi trường. Chấp nhận được vì đang là dữ
+  liệu dev/test.
+- `docker-compose.yml` có `TZ: Asia/Ho_Chi_Minh` ở container `app` — đây là timezone hệ điều hành,
+  không phải cấu hình Laravel (Laravel tự gọi `date_default_timezone_set(config('app.timezone'))`
+  lúc boot, ghi đè `TZ` của OS), nên không xung đột với fix này.
+- Nhân tiện sửa luôn `tests/Feature/AppointmentTest.php`: 24 chỗ hardcode ngày `2026-08-15`/
+  `2026-08-16` (nguồn gốc của 9 test fail lặp lại xuyên suốt nhật ký từ FE-03 đến FE-07 mỗi khi
+  "hôm nay" vượt qua mốc đó) — đẩy sang `2030-06-15`/`2030-06-16`. Đây là fix tạm thời kiểu cũ (đẩy
+  xa mốc cố định), chưa phải fix triệt để (đổi sang ngày tính tương đối theo `now()`); nếu muốn
+  vĩnh viễn không tái diễn thì cần viết lại các fixture này dùng ngày động.
+- Full backend suite sau cả 2 fix: **208/208 pass** — lần đầu tiên toàn bộ suite xanh hoàn toàn kể
+  từ khi bắt đầu nhật ký này.
+- Cần restart container (`docker compose restart app`) để Laravel đọc lại `.env` mới; không cần
+  rebuild image vì `.env` nằm trong volume mount `.:/var/www`.

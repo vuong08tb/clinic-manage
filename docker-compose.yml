@@ -26,12 +26,12 @@ services:
             POSTGRES_DB: clinic_app
             POSTGRES_USER: clinic
             POSTGRES_PASSWORD: secret
-            TZ: Asia/Ho_Chi_Minh
-            PGTZ: Asia/Ho_Chi_Minh
+            TZ: UTC
+            PGTZ: UTC
         command: >
             postgres
-            -c timezone=Asia/Ho_Chi_Minh
-            -c log_timezone=Asia/Ho_Chi_Minh
+            -c timezone=UTC
+            -c log_timezone=UTC
         ports:
             - "5433:5432"
         volumes:

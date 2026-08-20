@@ -89,7 +89,7 @@ class AppointmentTest extends TestCase
             ->assertJsonPath('data.doctor.user.id', $doctor->user_id);
 
         $this->patchJson("/api/appointments/{$appointment->id}", [
-            'scheduled_at' => '2026-08-15T10:30:00+07:00',
+            'scheduled_at' => '2030-06-15T10:30:00+07:00',
             'reason' => null,
         ])->assertOk()
             ->assertJsonPath('message', 'Appointment updated')
@@ -144,19 +144,19 @@ class AppointmentTest extends TestCase
         $target = Appointment::factory()->create([
             'doctor_id' => $doctor->id,
             'patient_id' => $patient->id,
-            'scheduled_at' => '2026-08-15 09:00:00',
+            'scheduled_at' => '2030-06-15 09:00:00',
             'status' => Appointment::STATUS_SCHEDULED,
         ]);
         Appointment::factory()->create([
             'doctor_id' => $doctor->id,
             'patient_id' => $otherPatient->id,
-            'scheduled_at' => '2026-08-15 11:00:00',
+            'scheduled_at' => '2030-06-15 11:00:00',
             'status' => Appointment::STATUS_CONFIRMED,
         ]);
         Appointment::factory()->create([
             'doctor_id' => $otherDoctor->id,
             'patient_id' => $patient->id,
-            'scheduled_at' => '2026-08-16 09:00:00',
+            'scheduled_at' => '2030-06-16 09:00:00',
             'status' => Appointment::STATUS_SCHEDULED,
         ]);
 
@@ -164,9 +164,9 @@ class AppointmentTest extends TestCase
 
         $queries = [
             "doctor_id={$doctor->id}&patient_id={$patient->id}",
-            "patient_id={$patient->id}&date=2026-08-15",
+            "patient_id={$patient->id}&date=2030-06-15",
             "doctor_id={$doctor->id}&status=scheduled",
-            "doctor_id={$doctor->id}&patient_id={$patient->id}&status=scheduled&date=2026-08-15",
+            "doctor_id={$doctor->id}&patient_id={$patient->id}&status=scheduled&date=2030-06-15",
         ];
 
         foreach ($queries as $query) {
@@ -344,13 +344,13 @@ class AppointmentTest extends TestCase
         $doctor = Doctor::factory()->create();
         Appointment::factory()->create([
             'doctor_id' => $doctor->id,
-            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'scheduled_at' => '2030-06-15T09:00:00+07:00',
             'status' => Appointment::STATUS_SCHEDULED,
         ]);
 
         Sanctum::actingAs($this->createUser('ADMIN'));
 
-        foreach (['2026-08-15T08:31:00+07:00', '2026-08-15T09:15:00+07:00', '2026-08-15T09:29:00+07:00'] as $overlapping) {
+        foreach (['2030-06-15T08:31:00+07:00', '2030-06-15T09:15:00+07:00', '2030-06-15T09:29:00+07:00'] as $overlapping) {
             $patient = Patient::factory()->create();
 
             $this->postJson('/api/appointments', $this->appointmentData($patient, $doctor, [
@@ -376,13 +376,13 @@ class AppointmentTest extends TestCase
         $doctor = Doctor::factory()->create();
         Appointment::factory()->create([
             'doctor_id' => $doctor->id,
-            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'scheduled_at' => '2030-06-15T09:00:00+07:00',
             'status' => Appointment::STATUS_SCHEDULED,
         ]);
 
         Sanctum::actingAs($this->createUser('ADMIN'));
 
-        foreach (['2026-08-15T08:30:00+07:00', '2026-08-15T09:30:00+07:00'] as $boundary) {
+        foreach (['2030-06-15T08:30:00+07:00', '2030-06-15T09:30:00+07:00'] as $boundary) {
             $this->postJson('/api/appointments', $this->appointmentData(
                 Patient::factory()->create(),
                 $doctor,
@@ -399,7 +399,7 @@ class AppointmentTest extends TestCase
         $doctor = Doctor::factory()->create();
         Appointment::factory()->create([
             'doctor_id' => $doctor->id,
-            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'scheduled_at' => '2030-06-15T09:00:00+07:00',
             'status' => Appointment::STATUS_CANCELLED,
         ]);
 
@@ -408,7 +408,7 @@ class AppointmentTest extends TestCase
         $this->postJson('/api/appointments', $this->appointmentData(
             Patient::factory()->create(),
             $doctor,
-            ['scheduled_at' => '2026-08-15T09:00:00+07:00'],
+            ['scheduled_at' => '2030-06-15T09:00:00+07:00'],
         ))->assertCreated();
     }
 
@@ -420,7 +420,7 @@ class AppointmentTest extends TestCase
         $doctor = Doctor::factory()->create();
         Appointment::factory()->create([
             'doctor_id' => $doctor->id,
-            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'scheduled_at' => '2030-06-15T09:00:00+07:00',
             'status' => Appointment::STATUS_COMPLETED,
         ]);
 
@@ -429,7 +429,7 @@ class AppointmentTest extends TestCase
         $this->postJson('/api/appointments', $this->appointmentData(
             Patient::factory()->create(),
             $doctor,
-            ['scheduled_at' => '2026-08-15T09:00:00+07:00'],
+            ['scheduled_at' => '2030-06-15T09:00:00+07:00'],
         ))->assertUnprocessable()
             ->assertJsonPath(
                 'errors.scheduled_at.0',
@@ -446,7 +446,7 @@ class AppointmentTest extends TestCase
         $otherDoctor = Doctor::factory()->create();
         Appointment::factory()->create([
             'doctor_id' => $doctor->id,
-            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'scheduled_at' => '2030-06-15T09:00:00+07:00',
             'status' => Appointment::STATUS_SCHEDULED,
         ]);
 
@@ -455,7 +455,7 @@ class AppointmentTest extends TestCase
         $this->postJson('/api/appointments', $this->appointmentData(
             Patient::factory()->create(),
             $otherDoctor,
-            ['scheduled_at' => '2026-08-15T09:00:00+07:00'],
+            ['scheduled_at' => '2030-06-15T09:00:00+07:00'],
         ))->assertCreated();
     }
 
@@ -467,12 +467,12 @@ class AppointmentTest extends TestCase
         $doctor = Doctor::factory()->create();
         Appointment::factory()->create([
             'doctor_id' => $doctor->id,
-            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'scheduled_at' => '2030-06-15T09:00:00+07:00',
             'status' => Appointment::STATUS_SCHEDULED,
         ]);
         $appointment = Appointment::factory()->create([
             'doctor_id' => $doctor->id,
-            'scheduled_at' => '2026-08-16T09:00:00+07:00',
+            'scheduled_at' => '2030-06-16T09:00:00+07:00',
             'status' => Appointment::STATUS_SCHEDULED,
         ]);
         $originalScheduledAt = $appointment->scheduled_at;
@@ -480,7 +480,7 @@ class AppointmentTest extends TestCase
         Sanctum::actingAs($this->createUser('ADMIN'));
 
         $this->patchJson("/api/appointments/{$appointment->id}", [
-            'scheduled_at' => '2026-08-15T09:15:00+07:00',
+            'scheduled_at' => '2030-06-15T09:15:00+07:00',
         ])->assertUnprocessable()
             ->assertJsonPath(
                 'errors.scheduled_at.0',
@@ -498,7 +498,7 @@ class AppointmentTest extends TestCase
         $doctor = Doctor::factory()->create();
         $appointment = Appointment::factory()->create([
             'doctor_id' => $doctor->id,
-            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'scheduled_at' => '2030-06-15T09:00:00+07:00',
             'status' => Appointment::STATUS_SCHEDULED,
         ]);
         $originalScheduledAt = $appointment->scheduled_at;
@@ -506,7 +506,7 @@ class AppointmentTest extends TestCase
         Sanctum::actingAs($this->createUser('ADMIN'));
 
         $this->patchJson("/api/appointments/{$appointment->id}", [
-            'scheduled_at' => '2026-08-15T09:15:00+07:00',
+            'scheduled_at' => '2030-06-15T09:15:00+07:00',
         ])->assertOk();
 
         $this->assertFalse($appointment->refresh()->scheduled_at->equalTo($originalScheduledAt));
@@ -520,12 +520,12 @@ class AppointmentTest extends TestCase
         $doctor = Doctor::factory()->create();
         Appointment::factory()->create([
             'doctor_id' => $doctor->id,
-            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'scheduled_at' => '2030-06-15T09:00:00+07:00',
             'status' => Appointment::STATUS_SCHEDULED,
         ]);
         $appointment = Appointment::factory()->create([
             'doctor_id' => $doctor->id,
-            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'scheduled_at' => '2030-06-15T09:00:00+07:00',
             'status' => Appointment::STATUS_SCHEDULED,
         ]);
 
@@ -833,7 +833,7 @@ class AppointmentTest extends TestCase
         return array_merge([
             'patient_id' => $patient->id,
             'doctor_id' => $doctor->id,
-            'scheduled_at' => '2026-08-15T09:00:00+07:00',
+            'scheduled_at' => '2030-06-15T09:00:00+07:00',
             'reason' => 'Routine follow-up',
         ], $overrides);
     }
