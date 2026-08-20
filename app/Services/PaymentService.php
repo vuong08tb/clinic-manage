@@ -90,6 +90,13 @@ class PaymentService
         return DB::transaction(function () use ($payment): Payment {
             $lockedPayment = Payment::query()->lockForUpdate()->findOrFail($payment->getKey());
 
+            // Capture is retried by design: PayPal can redirect the customer back more
+            // than once, and the browser back button replays the return page. Report the
+            // settled payment instead of failing a request whose outcome already happened.
+            if ($lockedPayment->status === Payment::STATUS_COMPLETED) {
+                return $lockedPayment;
+            }
+
             if ($lockedPayment->status !== Payment::STATUS_PENDING) {
                 throw ValidationException::withMessages([
                     'payment' => [PaymentMessage::PAYMENT_CANNOT_BE_CAPTURED],

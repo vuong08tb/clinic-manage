@@ -153,6 +153,27 @@ class FrontendPageTest extends TestCase
         }
     }
 
+    /**
+     * Alpine.data() already invokes a component's init(), so an extra x-init="init()"
+     * in the markup runs it a second time. On /payments/return that meant two parallel
+     * captures, where the second one failed and masked a successful payment.
+     */
+    public function test_pages_do_not_invoke_init_twice(): void
+    {
+        $pages = [
+            '/login', '/dashboard', '/patients', '/appointments', '/examinations',
+            '/prescriptions', '/medicines', '/invoices', '/payments/return',
+            '/payments/cancel', '/specialties', '/doctors', '/users',
+        ];
+
+        foreach ($pages as $url) {
+            $this->withoutVite()
+                ->get($url)
+                ->assertOk()
+                ->assertDontSee('x-init="init()"', false);
+        }
+    }
+
     public function test_removed_detail_routes_are_gone(): void
     {
         $this->withoutVite()->get('/patients/1')->assertNotFound();

@@ -3,7 +3,7 @@
 @section('title', 'Lịch hẹn')
 
 @section('content')
-<div x-data="appointmentIndexPage" x-init="init()" x-on:keydown.escape.window="handleEscape()"
+<div x-data="appointmentIndexPage" x-on:keydown.escape.window="handleEscape()"
     class="mx-auto max-w-[1600px] space-y-6">
     <x-layout.page-header title="Lịch hẹn" description="Quản lý lịch khám của bệnh nhân theo bác sĩ.">
         <x-slot:actions>

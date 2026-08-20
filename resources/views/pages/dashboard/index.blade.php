@@ -3,7 +3,7 @@
 @section('title', 'Dashboard')
 
 @section('content')
-<div x-data="dashboardPage" x-init="init()" class="mx-auto max-w-[1600px] space-y-7">
+<div x-data="dashboardPage" class="mx-auto max-w-[1600px] space-y-7">
     <x-layout.page-header title="Dashboard" description="Tổng quan công việc theo quyền truy cập của bạn.">
         <x-slot:actions>
             <x-ui.button variant="secondary" x-on:click="load()" x-bind:disabled="refreshing">

@@ -3,7 +3,7 @@
 @section('title', 'Đã hủy thanh toán')
 
 @section('content')
-<div x-data="paymentCancelPage" x-init="init()" class="mx-auto max-w-lg">
+<div x-data="paymentCancelPage" class="mx-auto max-w-lg">
     <div class="surface-card p-8 text-center">
         <div x-show="loading" class="space-y-4" role="status">
             <div class="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600"></div>

@@ -3,7 +3,7 @@
 @section('title', 'Toa thuốc')
 
 @section('content')
-<div x-data="prescriptionIndexPage" x-init="init()" x-on:keydown.escape.window="handleEscape()"
+<div x-data="prescriptionIndexPage" x-on:keydown.escape.window="handleEscape()"
     class="mx-auto max-w-[1400px] space-y-6">
     <x-layout.page-header title="Toa thuốc"
         description="Toa thuốc được kê từ phiếu khám, quản lý thuốc trong toa và tồn kho.">
