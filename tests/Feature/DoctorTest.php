@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\Role;
 use App\Models\Specialty;
@@ -326,6 +327,27 @@ class DoctorTest extends TestCase
         $this->getJson('/api/doctors')
             ->assertUnauthorized()
             ->assertJsonPath('message', 'Unauthenticated.');
+    }
+
+    /**
+     * Verify deleting a doctor with dependent appointments returns a friendly 422 instead of
+     * a raw foreign key violation.
+     */
+    public function test_delete_rejects_doctor_with_dependent_records(): void
+    {
+        $doctor = Doctor::factory()->create();
+        Appointment::factory()->create(['doctor_id' => $doctor->id]);
+
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        $this->deleteJson("/api/doctors/{$doctor->id}")
+            ->assertUnprocessable()
+            ->assertJsonPath(
+                'errors.doctor.0',
+                'This doctor cannot be deleted because they have appointments, examinations, or prescriptions on record.',
+            );
+
+        $this->assertDatabaseHas('doctors', ['id' => $doctor->id]);
     }
 
     /**

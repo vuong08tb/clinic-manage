@@ -11,6 +11,8 @@ import { medicineIndexPage } from "./features/medicines";
 import { invoiceIndexPage } from "./features/invoices";
 import { paymentReturnPage } from "./features/payments/return";
 import { paymentCancelPage } from "./features/payments/cancel";
+import { specialtyIndexPage } from "./features/specialties";
+import { doctorIndexPage } from "./features/doctors";
 
 window.Alpine = Alpine;
 
@@ -28,6 +30,8 @@ document.addEventListener("alpine:init", () => {
     Alpine.data("invoiceIndexPage", invoiceIndexPage);
     Alpine.data("paymentReturnPage", paymentReturnPage);
     Alpine.data("paymentCancelPage", paymentCancelPage);
+    Alpine.data("specialtyIndexPage", specialtyIndexPage);
+    Alpine.data("doctorIndexPage", doctorIndexPage);
 });
 
 Alpine.start();

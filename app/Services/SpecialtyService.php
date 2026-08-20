@@ -2,8 +2,11 @@
 
 namespace App\Services;
 
+use App\Constants\SpecialtyMessage;
 use App\Models\Specialty;
+use Illuminate\Database\QueryException;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Handle specialty catalog queries and mutations.
@@ -70,6 +73,18 @@ class SpecialtyService
      */
     public function delete(Specialty $specialty): void
     {
-        $specialty->delete();
+        try {
+            $specialty->delete();
+        } catch (QueryException $exception) {
+            // Postgres reports foreign key violations as 23503; SQLite (used by the test
+            // suite) only has the generic 23000 integrity-constraint code.
+            if (! in_array($exception->getCode(), ['23503', '23000'], true)) {
+                throw $exception;
+            }
+
+            throw ValidationException::withMessages([
+                'specialty' => [SpecialtyMessage::SPECIALTY_HAS_DOCTORS],
+            ]);
+        }
     }
 }

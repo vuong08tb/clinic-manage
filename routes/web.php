@@ -31,3 +31,9 @@ Route::view('/payments/return', 'pages.payments.return')
 
 Route::view('/payments/cancel', 'pages.payments.cancel')
     ->name('web.payments.cancel');
+
+Route::view('/specialties', 'pages.specialties.index')
+    ->name('web.specialties.index');
+
+Route::view('/doctors', 'pages.doctors.index')
+    ->name('web.doctors.index');

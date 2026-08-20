@@ -330,11 +330,11 @@ Mục tiêu: dashboard role-aware, không gọi endpoint người dùng không c
 
 ### FE-09 — Chuyên khoa và bác sĩ
 
-- [ ] CRUD chuyên khoa bằng table + modal.
-- [ ] Danh sách bác sĩ có filter chuyên khoa.
-- [ ] Form bác sĩ chọn user và specialty.
-- [ ] Modal chi tiết bác sĩ.
-- [ ] Action theo `SPECIALTIES.*` và `DOCTORS.*`.
+- [x] CRUD chuyên khoa bằng table + modal.
+- [x] Danh sách bác sĩ có filter chuyên khoa.
+- [x] Form bác sĩ chọn user và specialty.
+- [x] Modal chi tiết bác sĩ.
+- [x] Action theo `SPECIALTIES.*` và `DOCTORS.*`.
 
 ### FE-10 — Người dùng
 
@@ -778,3 +778,44 @@ Kiểm chứng:
   `sidebar.blade.php` (tooltip mục `ready:false`) vẫn đúng, không sửa, vì đó là tính năng thật sự
   chưa làm (FE-09/FE-10 và trung tâm thông báo).
 - `npm run build`, `php artisan view:cache`, full backend suite **213/213 pass**.
+
+### 2026-08-20 — FE-09 (Chuyên khoa và bác sĩ)
+
+- Backend đầy đủ CRUD cho cả 2 (`SpecialtyController`/`DoctorController` là `apiResource` trọn vẹn,
+  không thiếu route nào như FE-06) — nhưng phát hiện 1 lỗ hổng UX giống hệt lớp lỗi vừa vá ở
+  invoices: `doctors.specialty_id`, `appointments.doctor_id`, `examinations.doctor_id`,
+  `prescriptions.doctor_id` đều `restrictOnDelete()`. Xóa 1 chuyên khoa đang có bác sĩ, hoặc xóa 1
+  bác sĩ đang có lịch hẹn/phiếu khám/toa thuốc, sẽ khiến Postgres chặn ở tầng DB và ném
+  `QueryException` thô ra ngoài — chưa được `SpecialtyService`/`DoctorService` bắt lại, nên
+  frontend sẽ nhận nguyên lỗi 500 (có thể lộ cả câu SQL vì `APP_DEBUG=true`). Vá bằng cách bắt
+  `QueryException`, nhận diện đúng cả 2 driver (`23503` của Postgres — driver thật của production;
+  `23000` của SQLite — driver test suite dùng, xem `phpunit.xml`), chuyển thành `ValidationException`
+  422 với message rõ ràng (`SPECIALTY_HAS_DOCTORS`/`DOCTOR_HAS_DEPENDENT_RECORDS`). Thêm 2 test xác
+  nhận (`test_delete_rejects_specialty_with_assigned_doctors`,
+  `test_delete_rejects_doctor_with_dependent_records`).
+- Hoàn thiện FE-09: `/specialties` là CRUD đơn giản nhất trong app (chỉ tên + mô tả, mirror gần như
+  y hệt patients) — table + form modal (thêm/sửa dùng chung `formMode`) + detail modal (dù checklist
+  không bắt buộc, thêm vào cho nhất quán với quy ước Xem/Sửa/Xóa toàn app, giống cách FE-07 đã làm)
+  + confirm popup xóa. `/doctors` filter theo `specialty_id` (dropdown, load từ `GET /specialties`),
+  form chọn user qua combobox tìm kiếm + chọn specialty qua `<select>` (danh sách chuyên khoa nhỏ,
+  không cần search), modal chi tiết, confirm popup xóa. Action theo `SPECIALTIES.*`/`DOCTORS.*`.
+- **Vấn đề chọn user cho form bác sĩ**: `StoreDoctorRequest`/`UpdateDoctorRequest` yêu cầu
+  `user_id` phải trỏ tới user có role `DOCTOR` (`USER_MUST_HAVE_DOCTOR_ROLE`), nhưng
+  `GET /api/users` chỉ filter được theo `role_id` (số), không theo tên role, và `GET /api/roles`
+  vẫn là gap đã ghi nhận từ trước (chưa làm, dành cho FE-10) — không thể tra `role_id` của DOCTOR
+  từ frontend một cách "sạch" (không hardcode magic number). Giải bằng cách tận dụng
+  `UserService::paginate()` vốn đã `with('role')` sẵn: gọi `GET /users?q=...` bình thường rồi lọc
+  client-side `user.role?.name === 'DOCTOR'` trước khi hiện trong combobox
+  (`searchDoctorEligibleUsers()` trong `doctor-api.js`) — người dùng chỉ thấy đúng các tài khoản
+  hợp lệ, không cần đợi `GET /api/roles` mới làm được. Combobox này chỉ ADMIN nhìn thấy (chỉ ADMIN
+  có `DOCTORS.CREATE`/`UPDATE`), nên chắc chắn có sẵn `USERS.FINDALL` để gọi API này.
+- Không thêm mục "Thanh toán" riêng vào sidebar (dù sơ đồ điều hướng ở mục 4 của tài liệu này có
+  liệt kê) — thanh toán quản lý ngay trong modal chi tiết hóa đơn từ FE-08, không có màn hình CRUD
+  độc lập, giữ đúng tinh thần "trang danh sách là trang chính của chức năng".
+- Self-test: thêm `test_specialty_index_page_is_available`, `test_doctor_index_page_is_available`
+  và `/specialties`, `/doctors` vào `test_feature_pages_render_modal_shells` trong
+  `FrontendPageTest.php` — 14 pass. `SpecialtyTest.php`/`DoctorTest.php` có sẵn đã đủ RBAC theo
+  role được phép/bị từ chối (chỉ ADMIN ghi được, RECEPTIONIST/DOCTOR chỉ đọc, PHARMACIST/CASHIER
+  không có quyền truy cập).
+- `npm run build`, `php artisan view:cache`, `vendor/bin/pint --test` sạch. Full backend suite:
+  **217/217 pass**.
