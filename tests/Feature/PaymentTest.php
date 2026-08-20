@@ -389,12 +389,44 @@ class PaymentTest extends TestCase
     }
 
     /**
-     * Verify a payment that is not pending cannot be captured again.
+     * Verify re-capturing a settled payment reports the existing result instead of
+     * failing: PayPal may redirect the customer back more than once, and the return
+     * page is replayed by the browser back button.
      */
-    public function test_capture_rejected_when_payment_is_not_pending(): void
+    public function test_capture_is_idempotent_for_an_already_completed_payment(): void
     {
         $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_PAID]);
         $payment = Payment::factory()->completed()->create(['invoice_id' => $invoice->id, 'amount' => 100000]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson("/api/payments/{$payment->id}/capture")
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Payment captured')
+            ->assertJsonPath('data.id', $payment->id)
+            ->assertJsonPath('data.status', Payment::STATUS_COMPLETED);
+
+        // The money was already taken; a replay must not reach PayPal again.
+        Http::assertNothingSent();
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => Payment::STATUS_COMPLETED,
+        ]);
+    }
+
+    /**
+     * Verify a payment that is neither pending nor completed cannot be captured.
+     */
+    public function test_capture_rejected_when_payment_is_not_pending(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
+        $payment = Payment::factory()->create([
+            'invoice_id' => $invoice->id,
+            'amount' => 100000,
+            'status' => Payment::STATUS_FAILED,
+        ]);
 
         Sanctum::actingAs($this->createUser('CASHIER'));
 

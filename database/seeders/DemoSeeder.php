@@ -57,7 +57,7 @@ class DemoSeeder extends Seeder
             $this->seedClinicalFlow($doctors, $patients, $medicines);
         });
 
-        $this->command?->info('Demo data seeded. Doctor login: doctor.an@clinic.test / Doctor@123 (see DemoSeeder for the full account list).');
+        $this->command?->info('Demo data seeded. Doctor login: doctor@clinic.test / Doctor@123 (see DemoSeeder for the full account list).');
     }
 
     /**
@@ -90,7 +90,7 @@ class DemoSeeder extends Seeder
         $bySpecialty = $specialties->keyBy('name');
 
         $definitions = [
-            ['name' => 'BS. Nguyễn Văn An', 'email' => 'doctor.an@clinic.test', 'specialty' => 'Nội tổng quát', 'license' => 'VN-DOC-0001'],
+            ['name' => 'BS. Nguyễn Văn An', 'email' => 'doctor@clinic.test', 'specialty' => 'Nội tổng quát', 'license' => 'VN-DOC-0001'],
             ['name' => 'BS. Trần Thị Bình', 'email' => 'doctor.binh@clinic.test', 'specialty' => 'Nhi khoa', 'license' => 'VN-DOC-0002'],
             ['name' => 'BS. Lê Minh Cường', 'email' => 'doctor.cuong@clinic.test', 'specialty' => 'Da liễu', 'license' => 'VN-DOC-0003'],
             ['name' => 'BS. Phạm Thị Dung', 'email' => 'doctor.dung@clinic.test', 'specialty' => 'Tim mạch', 'license' => 'VN-DOC-0004'],

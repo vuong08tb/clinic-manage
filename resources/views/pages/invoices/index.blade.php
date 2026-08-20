@@ -3,7 +3,7 @@
 @section('title', 'Hóa đơn')
 
 @section('content')
-<div x-data="invoiceIndexPage" x-init="init()" x-on:keydown.escape.window="handleEscape()"
+<div x-data="invoiceIndexPage" x-on:keydown.escape.window="handleEscape()"
     class="mx-auto max-w-[1400px] space-y-6">
     <x-layout.page-header title="Hóa đơn" description="Hóa đơn lập từ phiếu khám, theo dõi thanh toán qua PayPal.">
         <x-slot:actions>

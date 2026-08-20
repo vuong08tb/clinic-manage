@@ -38,7 +38,7 @@ class DemoSeederTest extends TestCase
         $this->assertSame(10, User::query()->count());
 
         $this->assertTrue(User::query()->where('email', 'admin@clinic.test')->exists());
-        $this->assertTrue(User::query()->where('email', 'doctor.an@clinic.test')->exists());
+        $this->assertTrue(User::query()->where('email', 'doctor@clinic.test')->exists());
         $this->assertTrue(User::query()->where('email', 'receptionist@clinic.test')->exists());
         $this->assertTrue(User::query()->where('email', 'pharmacist@clinic.test')->exists());
         $this->assertTrue(User::query()->where('email', 'cashier@clinic.test')->exists());
@@ -75,7 +75,7 @@ class DemoSeederTest extends TestCase
         });
 
         // The seeded doctor account can actually log in and see their own data.
-        $doctorUser = User::query()->where('email', 'doctor.an@clinic.test')->firstOrFail();
+        $doctorUser = User::query()->where('email', 'doctor@clinic.test')->firstOrFail();
         Sanctum::actingAs($doctorUser);
 
         $this->getJson('/api/appointments')->assertOk();

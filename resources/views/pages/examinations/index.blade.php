@@ -3,7 +3,7 @@
 @section('title', 'Phiếu khám')
 
 @section('content')
-<div x-data="examinationIndexPage" x-init="init()" x-on:keydown.escape.window="handleEscape()"
+<div x-data="examinationIndexPage" x-on:keydown.escape.window="handleEscape()"
     class="mx-auto max-w-[1400px] space-y-6">
     <x-layout.page-header title="Phiếu khám" description="Hồ sơ khám bệnh được tạo từ lịch hẹn đã xác nhận.">
         <x-slot:actions>

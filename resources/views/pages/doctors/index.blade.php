@@ -3,7 +3,7 @@
 @section('title', 'Bác sĩ')
 
 @section('content')
-<div x-data="doctorIndexPage" x-init="init()" x-on:keydown.escape.window="handleEscape()"
+<div x-data="doctorIndexPage" x-on:keydown.escape.window="handleEscape()"
     class="mx-auto max-w-[1400px] space-y-6">
     <x-layout.page-header title="Bác sĩ" description="Hồ sơ bác sĩ gắn với tài khoản người dùng và chuyên khoa.">
         <x-slot:actions>

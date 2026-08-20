@@ -3,7 +3,7 @@
 @section('title', 'Kho thuốc')
 
 @section('content')
-<div x-data="medicineIndexPage" x-init="init()" x-on:keydown.escape.window="handleEscape()"
+<div x-data="medicineIndexPage" x-on:keydown.escape.window="handleEscape()"
     class="mx-auto max-w-[1600px] space-y-6">
     <x-layout.page-header title="Kho thuốc" description="Danh mục thuốc, tồn kho và điều chỉnh nhập/xuất.">
         <x-slot:actions>

@@ -3,7 +3,7 @@
 @section('title', 'Bệnh nhân')
 
 @section('content')
-<div x-data="patientIndexPage" x-init="init()" x-on:keydown.escape.window="handleEscape()"
+<div x-data="patientIndexPage" x-on:keydown.escape.window="handleEscape()"
     class="mx-auto max-w-[1600px] space-y-6">
     <x-layout.page-header title="Bệnh nhân" description="Quản lý hồ sơ và thông tin liên hệ của bệnh nhân.">
         <x-slot:actions>

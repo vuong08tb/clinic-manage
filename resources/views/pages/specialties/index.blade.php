@@ -3,7 +3,7 @@
 @section('title', 'Chuyên khoa')
 
 @section('content')
-<div x-data="specialtyIndexPage" x-init="init()" x-on:keydown.escape.window="handleEscape()"
+<div x-data="specialtyIndexPage" x-on:keydown.escape.window="handleEscape()"
     class="mx-auto max-w-[1200px] space-y-6">
     <x-layout.page-header title="Chuyên khoa" description="Danh mục chuyên khoa dùng để gán cho hồ sơ bác sĩ.">
         <x-slot:actions>

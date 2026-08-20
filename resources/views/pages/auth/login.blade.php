@@ -4,7 +4,7 @@
 
 @section('content')
 <main class="relative grid min-h-screen overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(480px,0.78fr)]"
-    x-data="loginPage" x-init="init()">
+    x-data="loginPage">
     <section class="relative hidden overflow-hidden bg-blue-700 p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div class="absolute inset-0 opacity-40" aria-hidden="true">
             <div class="absolute -top-32 -left-24 h-96 w-96 rounded-full bg-cyan-300/30 blur-3xl"></div>

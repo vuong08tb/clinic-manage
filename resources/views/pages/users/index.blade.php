@@ -3,7 +3,7 @@
 @section('title', 'Người dùng')
 
 @section('content')
-<div x-data="userIndexPage" x-init="init()" x-on:keydown.escape.window="handleEscape()"
+<div x-data="userIndexPage" x-on:keydown.escape.window="handleEscape()"
     class="mx-auto max-w-[1400px] space-y-6">
     <x-layout.page-header title="Người dùng" description="Quản lý tài khoản nhân viên và vai trò truy cập hệ thống.">
         <x-slot:actions>

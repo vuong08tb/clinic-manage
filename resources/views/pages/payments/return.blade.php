@@ -3,7 +3,7 @@
 @section('title', 'Kết quả thanh toán')
 
 @section('content')
-<div x-data="paymentReturnPage" x-init="init()" class="mx-auto max-w-lg">
+<div x-data="paymentReturnPage" class="mx-auto max-w-lg">
     <div class="surface-card p-8 text-center">
         <div x-show="status === 'loading'" class="space-y-4" role="status" aria-label="Đang xác nhận thanh toán">
             <div class="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600"></div>
