@@ -116,6 +116,16 @@ class FrontendPageTest extends TestCase
             );
     }
 
+    public function test_user_index_page_is_available(): void
+    {
+        $this->withoutVite()
+            ->get('/users')
+            ->assertOk()
+            ->assertSee(
+                'Quản lý tài khoản nhân viên và vai trò truy cập hệ thống.',
+            );
+    }
+
     /**
      * Add/edit/detail live in modals on the list page, so every feature renders
      * the shared modal shell instead of extra create/detail routes.
@@ -131,6 +141,7 @@ class FrontendPageTest extends TestCase
             '/invoices' => ['invoice-form-modal-title', 'invoice-detail-title'],
             '/specialties' => ['specialty-form-modal-title', 'specialty-detail-title'],
             '/doctors' => ['doctor-form-modal-title', 'doctor-detail-title'],
+            '/users' => ['user-form-modal-title', 'user-detail-title'],
         ];
 
         foreach ($pages as $url => $modalTitleIds) {

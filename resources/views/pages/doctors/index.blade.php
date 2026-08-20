@@ -72,6 +72,7 @@
                     <p class="text-sm text-slate-500" x-text="doctor.user?.email"></p>
                     <p class="text-sm text-slate-600" x-text="doctor.specialty?.name ?? '—'"></p>
                     <p class="text-xs text-slate-500" x-text="`CCHN: ${doctor.license_number}`"></p>
+                    <p class="truncate text-xs text-slate-500" x-text="doctor.bio || 'Không có tiểu sử'"></p>
 
                     <div class="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
                         <x-ui.row-action label="Xem" icon="eye" x-show="canView"
@@ -93,6 +94,7 @@
                         <th class="px-5 py-3">Bác sĩ</th>
                         <th class="px-5 py-3">Chuyên khoa</th>
                         <th class="px-5 py-3">Số CCHN</th>
+                        <th class="px-5 py-3">Tiểu sử</th>
                         <th class="px-5 py-3 text-right">Thao tác</th>
                     </tr>
                 </thead>
@@ -105,6 +107,8 @@
                             </td>
                             <td class="px-5 py-4 text-sm text-slate-700" x-text="doctor.specialty?.name ?? '—'"></td>
                             <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600" x-text="doctor.license_number"></td>
+                            <td class="max-w-xs truncate px-5 py-4 text-sm text-slate-600"
+                                x-text="doctor.bio || '—'"></td>
                             <td class="whitespace-nowrap px-5 py-4 text-right">
                                 <div class="inline-flex items-center gap-2">
                                     <x-ui.row-action label="Xem" icon="eye" x-show="canView"

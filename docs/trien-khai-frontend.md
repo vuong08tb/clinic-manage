@@ -338,12 +338,12 @@ Mục tiêu: dashboard role-aware, không gọi endpoint người dùng không c
 
 ### FE-10 — Người dùng
 
-- [ ] Bổ sung/xác nhận `/api/roles` trước khi làm form role selector.
-- [ ] Danh sách/search/filter role/status/pagination.
-- [ ] Modal thêm/sửa người dùng.
-- [ ] Confirm khóa/mở tài khoản.
-- [ ] Không cho thao tác làm mất admin hoạt động cuối cùng; hiển thị đúng lỗi backend.
-- [ ] Action theo `USERS.*`.
+- [x] Bổ sung/xác nhận `/api/roles` trước khi làm form role selector.
+- [x] Danh sách/search/filter role/status/pagination.
+- [x] Modal thêm/sửa người dùng.
+- [x] Confirm khóa/mở tài khoản.
+- [x] Không cho thao tác làm mất admin hoạt động cuối cùng; hiển thị đúng lỗi backend.
+- [x] Action theo `USERS.*`.
 
 ### FE-11 — Hoàn thiện và production hardening
 
@@ -361,7 +361,6 @@ Mục tiêu: dashboard role-aware, không gọi endpoint người dùng không c
 Các capability đã có trong tài liệu/RBAC nhưng chưa có route tương ứng trong source hiện tại:
 
 - `GET /api/stats` cho dashboard aggregate.
-- `GET /api/roles` cho role selector.
 
 Trong khi chưa có `/api/stats`, dashboard chỉ gọi các list endpoint mà user có permission và
 lấy `meta.total`; không phát request dẫn tới `403`.
@@ -819,3 +818,84 @@ Kiểm chứng:
   không có quyền truy cập).
 - `npm run build`, `php artisan view:cache`, `vendor/bin/pint --test` sạch. Full backend suite:
   **217/217 pass**.
+
+### 2026-08-20 — FE-10 (Người dùng) — đóng gap `GET /api/roles`
+
+- Đóng đúng gap checklist yêu cầu xác nhận trước: `config/rbac.php` đã map sẵn
+  `RoleController => ROLES` và permission `ROLES.FINDALL` đã được seed (cấp cho ADMIN qua "all
+  permissions"), nhưng chưa hề có `RoleController`/route nào — y hệt kiểu gap đã gặp ở FE-06
+  (prescriptions). Thêm `RoleService::all()` (trả 5 role cố định, không cần pagination vì danh mục
+  nhỏ, dùng `ApiResponse::collection()` thay vì `paginated()`), `RoleResource`
+  (`id`/`name`/`display_name`), `RoleController::index()`, route `GET /roles`. Thêm
+  `tests/Feature/RoleTest.php` (3 test: ADMIN xem được, role khác bị chặn đúng permission,
+  chưa đăng nhập bị chặn).
+- Hoàn thiện FE-10: `/users` filter theo `q` (tên/email), `role_id` (dropdown từ `GET /roles`),
+  `is_active` (dropdown). Modal thêm/sửa dùng chung `formMode`: form sửa có thêm checkbox "Đổi mật
+  khẩu" để ẩn/hiện field mật khẩu (mặc định không đổi, chỉ gửi `password` lên khi người dùng chủ
+  động tick). **`is_active` không bao giờ được gửi qua form thêm/sửa** — backend chủ động
+  `prohibited` field này ở `StoreUserRequest`/`UpdateUserRequest`
+  (`USE_STATUS_ENDPOINT`), bắt buộc đổi trạng thái qua `PATCH /users/{id}/status` riêng — khớp
+  đúng thiết kế "Confirm khóa/mở tài khoản" của checklist. Action theo `USERS.*`.
+- **"Không cho thao tác làm mất admin hoạt động cuối cùng"**: backend
+  (`UserService::assertNotLastActiveAdmin`) đã tự chặn và trả lỗi field `role_id` (khi đổi role)
+  hoặc `is_active` (khi khóa) — cả hai đều là tên field thật khớp với input/action tương ứng nên
+  không dính lỗi "field lạ bị nuốt message" như đã gặp ở invoices/specialties; chỉ cần
+  `fieldError('role_id')` trong form và bắt `firstFieldError(error.errors, 'is_active')` khi khóa
+  tài khoản là hiển thị đúng nguyên văn lý do backend.
+- Sửa 2 lỗi tự phát hiện khi viết `pages/users/index.blade.php`: dùng nhầm `icon-expr` trên
+  `<x-ui.row-action>` (component chỉ có `icon` tĩnh, không có prop động cho icon — không giống
+  `label-expr`/`tone-expr`) và `confirm-label-expr`/`variant-expr` trên `<x-ui.confirm-modal>`
+  (component chỉ có `title-expr` động, còn `confirmLabel`/`variant` là prop tĩnh). Sửa bằng cách
+  tách 2 nút "Khóa"/"Mở khóa" riêng (mỗi nút icon tĩnh, `x-show` theo `user.is_active`, giống cách
+  các nút chuyển trạng thái lịch hẹn ở FE-04), và dùng `confirm-label`/`variant` tĩnh cho popup xác
+  nhận (tiêu đề `title-expr` động đã đủ rõ ngữ cảnh khóa hay mở khóa).
+- Nút khóa/mở khóa tài khoản của chính mình vẫn hiện bình thường (không tự ẩn) — chỉ thêm dòng cảnh
+  báo nhỏ trong popup xác nhận ("Đây là tài khoản bạn đang đăng nhập…") vì backend đã tự cho phép
+  trường hợp còn ≥ 2 admin hoạt động (`test_admin_can_deactivate_self_when_another_active_admin_remains`),
+  không cần chặn phía client.
+- Self-test: thêm `test_user_index_page_is_available` và `/users` vào
+  `test_feature_pages_render_modal_shells` trong `FrontendPageTest.php` — 15 pass. `UserTest.php`
+  có sẵn (`test_non_admin_roles_cannot_manage_users`,
+  `test_last_active_admin_cannot_be_assigned_another_role`,
+  `test_last_active_admin_cannot_be_deactivated_through_status`, …) đã đủ RBAC và business rule,
+  không cần viết thêm ngoài `RoleTest.php`.
+- `npm run build`, `php artisan view:cache`, `vendor/bin/pint --test` sạch. Full backend suite:
+  **221/221 pass**.
+- Checklist mục 6 (API gap) giờ chỉ còn `GET /api/stats` — mọi gap khác đã đóng qua FE-06/FE-09/FE-10.
+
+### 2026-08-20 — T3.17 (Seeder dữ liệu demo đầy đủ luồng khám)
+
+- Task backend thuần (không thuộc checklist FE-XX ở trên), ghi lại đây cho liền mạch nhật ký.
+  `database/seeders/DemoSeeder.php`: seed 5 chuyên khoa, 6 bác sĩ (kèm tài khoản đăng nhập), 1 tài
+  khoản demo cho mỗi vai trò còn lại (RECEPTIONIST/PHARMACIST/CASHIER — để click thử được toàn bộ
+  luồng theo từng role mà không phải tự tạo tài khoản), 20 bệnh nhân (tên tiếng Việt sinh ngẫu
+  nhiên qua hàm `vietnameseName()` riêng vì `APP_FAKER_LOCALE=en_US` mặc định ra tên kiểu Mỹ, không
+  hợp demo phòng khám Việt Nam), 18 thuốc thông dụng, và với mỗi bác sĩ: 3 lịch hẹn sắp tới
+  (scheduled/confirmed/cancelled) + 2 lịch đã khám xong kèm đủ chuỗi phiếu khám → toa thuốc (lượt
+  khám đầu) → hóa đơn → thanh toán (lượt đầu thanh toán đủ, lượt hai để `unpaid` demo luồng tạo
+  thanh toán).
+- **Quyết định quan trọng**: gọi thẳng `PrescriptionService::createFromExamination()` và
+  `InvoiceService::createFromExamination()` thật thay vì tự tính lại `subtotal`/`total`/trừ tồn
+  kho bằng tay trong seeder — đảm bảo dữ liệu demo luôn khớp 100% với business rule thật (nếu sau
+  này đổi công thức tính hóa đơn, seeder tự động đúng theo, không cần sửa 2 chỗ). Riêng
+  `PaymentService::capture()` **không** gọi vì nó gọi API PayPal thật qua HTTP — seeder phải chạy
+  offline được, nên với các hóa đơn demo là "đã thanh toán", tạo thẳng `Payment` completed qua
+  factory rồi set `Invoice::STATUS_PAID` tay, chỉ giả lập đúng trạng thái cuối cùng chứ không tái
+  hiện luồng capture thật.
+- `DemoSeeder::run()` tự gọi `RoleSeeder`/`RbacSeeder`/`AdminSeeder` trước (cả 3 đều upsert nên gọi
+  lại an toàn) — chạy được `db:seed --class=DemoSeeder` một lệnh duy nhất trên DB trống là đủ, không
+  cần nhớ chạy 3 seeder khác trước.
+- Chuyên khoa/bác sĩ/3 tài khoản nghiệp vụ dùng `updateOrCreate` theo khóa tự nhiên (tên chuyên
+  khoa, email) nên **chạy lại an toàn**; bệnh nhân/lịch hẹn/phiếu khám/toa/hóa đơn/thanh toán thì
+  **không** — chạy 2 lần sẽ tạo thêm dữ liệu random mới chồng lên (không lỗi, nhưng không dedupe).
+  Ghi rõ trong docblock của seeder và README. Seeder nhắm tới dùng trên DB trống
+  (`migrate:fresh --seed` hoặc `db:seed --class=DemoSeeder` ngay sau khi migrate), không phải để
+  chạy lặp lại trên DB đã có dữ liệu thật.
+- Self-test: `tests/Feature/DemoSeederTest.php` — chạy seeder thật trong test (DB SQLite), assert
+  đúng số lượng từng bảng theo từng trạng thái, assert **số tiền đã thanh toán của mỗi hóa đơn
+  `paid` khớp chính xác `total`** (chứng minh money math của `InvoiceService` chạy đúng qua seeder
+  chứ không phải số bịa), và assert tài khoản bác sĩ vừa seed đăng nhập gọi API thật được. Thêm test
+  thứ 2 xác nhận chạy seeder 2 lần không nhân đôi chuyên khoa/bác sĩ/tài khoản nghiệp vụ. Cả 2 pass
+  ngay lần viết đầu tiên.
+- Thêm bảng tài khoản demo + hướng dẫn lệnh vào `README.md` mục 3.
+- `vendor/bin/pint --test` sạch. Full backend suite: **223/223 pass**.

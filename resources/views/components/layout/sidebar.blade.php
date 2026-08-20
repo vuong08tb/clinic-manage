@@ -51,7 +51,8 @@ request()->routeIs('dashboard'), 'permissions' => [], 'ready' => true],
 [
 'label' => 'Hệ thống',
 'items' => [
-['label' => 'Người dùng', 'icon' => 'users', 'permissions' => ['USERS.FINDALL'], 'ready' => false],
+['label' => 'Người dùng', 'icon' => 'users', 'href' => route('web.users.index'),
+'active' => request()->routeIs('web.users.*'), 'permissions' => ['USERS.FINDALL'], 'ready' => true],
 ],
 ],
 ];

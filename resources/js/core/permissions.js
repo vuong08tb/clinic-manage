@@ -61,4 +61,11 @@ export const PERMISSIONS = {
         UPDATE: 'DOCTORS.UPDATE',
         DELETE: 'DOCTORS.DELETE',
     },
+    USERS: {
+        FINDALL: 'USERS.FINDALL',
+        FINDONE: 'USERS.FINDONE',
+        CREATE: 'USERS.CREATE',
+        UPDATE: 'USERS.UPDATE',
+        UPDATESTATUS: 'USERS.UPDATESTATUS',
+    },
 };

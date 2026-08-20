@@ -37,3 +37,6 @@ Route::view('/specialties', 'pages.specialties.index')
 
 Route::view('/doctors', 'pages.doctors.index')
     ->name('web.doctors.index');
+
+Route::view('/users', 'pages.users.index')
+    ->name('web.users.index');

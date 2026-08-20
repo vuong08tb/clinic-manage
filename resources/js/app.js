@@ -13,6 +13,7 @@ import { paymentReturnPage } from "./features/payments/return";
 import { paymentCancelPage } from "./features/payments/cancel";
 import { specialtyIndexPage } from "./features/specialties";
 import { doctorIndexPage } from "./features/doctors";
+import { userIndexPage } from "./features/users";
 
 window.Alpine = Alpine;
 
@@ -32,6 +33,7 @@ document.addEventListener("alpine:init", () => {
     Alpine.data("paymentCancelPage", paymentCancelPage);
     Alpine.data("specialtyIndexPage", specialtyIndexPage);
     Alpine.data("doctorIndexPage", doctorIndexPage);
+    Alpine.data("userIndexPage", userIndexPage);
 });
 
 Alpine.start();
