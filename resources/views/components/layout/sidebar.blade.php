@@ -35,20 +35,24 @@ request()->routeIs('dashboard'), 'permissions' => [], 'ready' => true],
 [
 'label' => 'Tài chính',
 'items' => [
-['label' => 'Hóa đơn', 'icon' => 'invoice', 'permissions' => ['INVOICES.FINDALL'], 'ready' => false],
+['label' => 'Hóa đơn', 'icon' => 'invoice', 'href' => route('web.invoices.index'),
+'active' => request()->routeIs('web.invoices.*'), 'permissions' => ['INVOICES.FINDALL'], 'ready' => true],
 ],
 ],
 [
 'label' => 'Danh mục',
 'items' => [
-['label' => 'Chuyên khoa', 'icon' => 'specialty', 'permissions' => ['SPECIALTIES.FINDALL'], 'ready' => false],
-['label' => 'Bác sĩ', 'icon' => 'doctor', 'permissions' => ['DOCTORS.FINDALL'], 'ready' => false],
+['label' => 'Chuyên khoa', 'icon' => 'specialty', 'href' => route('web.specialties.index'),
+'active' => request()->routeIs('web.specialties.*'), 'permissions' => ['SPECIALTIES.FINDALL'], 'ready' => true],
+['label' => 'Bác sĩ', 'icon' => 'doctor', 'href' => route('web.doctors.index'),
+'active' => request()->routeIs('web.doctors.*'), 'permissions' => ['DOCTORS.FINDALL'], 'ready' => true],
 ],
 ],
 [
 'label' => 'Hệ thống',
 'items' => [
-['label' => 'Người dùng', 'icon' => 'users', 'permissions' => ['USERS.FINDALL'], 'ready' => false],
+['label' => 'Người dùng', 'icon' => 'users', 'href' => route('web.users.index'),
+'active' => request()->routeIs('web.users.*'), 'permissions' => ['USERS.FINDALL'], 'ready' => true],
 ],
 ],
 ];

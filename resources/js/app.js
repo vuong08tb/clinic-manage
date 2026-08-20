@@ -8,6 +8,12 @@ import { appointmentIndexPage } from "./features/appointments";
 import { examinationIndexPage } from "./features/examinations";
 import { prescriptionIndexPage } from "./features/prescriptions";
 import { medicineIndexPage } from "./features/medicines";
+import { invoiceIndexPage } from "./features/invoices";
+import { paymentReturnPage } from "./features/payments/return";
+import { paymentCancelPage } from "./features/payments/cancel";
+import { specialtyIndexPage } from "./features/specialties";
+import { doctorIndexPage } from "./features/doctors";
+import { userIndexPage } from "./features/users";
 
 window.Alpine = Alpine;
 
@@ -22,6 +28,12 @@ document.addEventListener("alpine:init", () => {
     Alpine.data("examinationIndexPage", examinationIndexPage);
     Alpine.data("prescriptionIndexPage", prescriptionIndexPage);
     Alpine.data("medicineIndexPage", medicineIndexPage);
+    Alpine.data("invoiceIndexPage", invoiceIndexPage);
+    Alpine.data("paymentReturnPage", paymentReturnPage);
+    Alpine.data("paymentCancelPage", paymentCancelPage);
+    Alpine.data("specialtyIndexPage", specialtyIndexPage);
+    Alpine.data("doctorIndexPage", doctorIndexPage);
+    Alpine.data("userIndexPage", userIndexPage);
 });
 
 Alpine.start();

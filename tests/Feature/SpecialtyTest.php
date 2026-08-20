@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Doctor;
 use App\Models\Role;
 use App\Models\Specialty;
 use App\Models\User;
@@ -184,6 +185,27 @@ class SpecialtyTest extends TestCase
         $this->getJson('/api/specialties')
             ->assertUnauthorized()
             ->assertJsonPath('message', 'Unauthenticated.');
+    }
+
+    /**
+     * Verify deleting a specialty with an assigned doctor returns a friendly 422 instead of
+     * a raw foreign key violation.
+     */
+    public function test_delete_rejects_specialty_with_assigned_doctors(): void
+    {
+        $specialty = Specialty::factory()->create();
+        Doctor::factory()->create(['specialty_id' => $specialty->id]);
+
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        $this->deleteJson("/api/specialties/{$specialty->id}")
+            ->assertUnprocessable()
+            ->assertJsonPath(
+                'errors.specialty.0',
+                'This specialty cannot be deleted because it still has doctors assigned to it.',
+            );
+
+        $this->assertDatabaseHas('specialties', ['id' => $specialty->id]);
     }
 
     public function test_missing_specialty_returns_404_json(): void

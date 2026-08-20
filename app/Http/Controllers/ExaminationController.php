@@ -35,7 +35,7 @@ class ExaminationController extends Controller
             ExaminationMessage::LIST_RETRIEVED,
             Response::HTTP_OK,
         );
-        
+
     }
 
     /**

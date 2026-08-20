@@ -24,4 +24,6 @@ final class SpecialtyMessage
     public const DESCRIPTION_TOO_LONG = 'The description may not be greater than 2000 characters.';
 
     public const UPDATE_FIELD_REQUIRED = 'At least one specialty field must be provided.';
+
+    public const SPECIALTY_HAS_DOCTORS = 'This specialty cannot be deleted because it still has doctors assigned to it.';
 }

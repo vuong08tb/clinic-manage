@@ -6,6 +6,7 @@ use App\Constants\DoctorMessage;
 use App\Models\Doctor;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -98,7 +99,19 @@ class DoctorService
      */
     public function delete(Doctor $doctor): void
     {
-        $doctor->delete();
+        try {
+            $doctor->delete();
+        } catch (QueryException $exception) {
+            // Postgres reports foreign key violations as 23503; SQLite (used by the test
+            // suite) only has the generic 23000 integrity-constraint code.
+            if (! in_array($exception->getCode(), ['23503', '23000'], true)) {
+                throw $exception;
+            }
+
+            throw ValidationException::withMessages([
+                'doctor' => [DoctorMessage::DOCTOR_HAS_DEPENDENT_RECORDS],
+            ]);
+        }
     }
 
     /**

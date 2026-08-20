@@ -112,7 +112,25 @@ docker compose exec app php artisan optimize:clear
 docker compose exec app php artisan route:list
 seed permission missing
 docker compose exec app php artisan db:seed --class=RbacSeeder
+
+seed full demo dataset (specialties, doctors + login accounts for every role, patients,
+medicines, and a sample appointment -> examination -> prescription -> invoice -> payment chain)
+docker compose exec app php artisan db:seed --class=DemoSeeder
 ```
+
+Demo login accounts created by `DemoSeeder` (see the seeder for the full list):
+
+| Role          | Email                        | Password           |
+| ------------- | ----------------------------- | ------------------- |
+| ADMIN         | admin@clinic.test             | Admin@123           |
+| DOCTOR        | doctor.an@clinic.test         | Doctor@123           |
+| RECEPTIONIST  | receptionist@clinic.test      | Receptionist@123     |
+| PHARMACIST    | pharmacist@clinic.test        | Pharmacist@123       |
+| CASHIER       | cashier@clinic.test           | Cashier@123          |
+
+`DemoSeeder` is meant for a fresh database (`migrate:fresh --seed` or the command above right
+after migrating) — the specialties, doctor/staff accounts are safe to re-run, but patients,
+appointments, and the rest of the sample clinical data are not deduplicated across runs.
 
 ## 4. Appointment Scheduling Rules
 

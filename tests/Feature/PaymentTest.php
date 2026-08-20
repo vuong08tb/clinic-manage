@@ -502,6 +502,51 @@ class PaymentTest extends TestCase
     }
 
     /**
+     * Verify payments can be filtered by invoice and by PayPal order id.
+     */
+    public function test_index_filters_by_invoice_and_provider_order_id(): void
+    {
+        $invoice = Invoice::factory()->create(['total' => 200000, 'status' => Invoice::STATUS_UNPAID]);
+        $payment = Payment::factory()->create([
+            'invoice_id' => $invoice->id,
+            'provider_order_id' => 'ORDER-INDEX-1',
+        ]);
+        Payment::factory()->create(['provider_order_id' => 'ORDER-INDEX-2']);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->getJson("/api/payments?invoice_id={$invoice->id}")
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $payment->id)
+            ->assertJsonCount(1, 'data');
+
+        $this->getJson('/api/payments?provider_order_id=ORDER-INDEX-1')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $payment->id)
+            ->assertJsonCount(1, 'data');
+    }
+
+    /**
+     * Verify roles without the list permission cannot browse payments.
+     */
+    public function test_roles_without_permission_cannot_list_payments(): void
+    {
+        Sanctum::actingAs($this->createUser('RECEPTIONIST'));
+
+        $this->getJson('/api/payments')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Missing permission: PAYMENTS.FINDALL');
+    }
+
+    /**
+     * Verify unauthenticated requests to the list endpoint are rejected.
+     */
+    public function test_unauthenticated_list_request_is_rejected(): void
+    {
+        $this->getJson('/api/payments')->assertUnauthorized();
+    }
+
+    /**
      * Create a user assigned to the requested seeded role.
      */
     private function createUser(string $role): User

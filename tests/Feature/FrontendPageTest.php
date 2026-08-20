@@ -80,6 +80,52 @@ class FrontendPageTest extends TestCase
             );
     }
 
+    public function test_invoice_index_page_is_available(): void
+    {
+        $this->withoutVite()
+            ->get('/invoices')
+            ->assertOk()
+            ->assertSee(
+                'Hóa đơn lập từ phiếu khám, theo dõi thanh toán qua PayPal.',
+            );
+    }
+
+    public function test_payment_return_and_cancel_pages_are_available(): void
+    {
+        $this->withoutVite()->get('/payments/return')->assertOk();
+        $this->withoutVite()->get('/payments/cancel')->assertOk();
+    }
+
+    public function test_specialty_index_page_is_available(): void
+    {
+        $this->withoutVite()
+            ->get('/specialties')
+            ->assertOk()
+            ->assertSee(
+                'Danh mục chuyên khoa dùng để gán cho hồ sơ bác sĩ.',
+            );
+    }
+
+    public function test_doctor_index_page_is_available(): void
+    {
+        $this->withoutVite()
+            ->get('/doctors')
+            ->assertOk()
+            ->assertSee(
+                'Hồ sơ bác sĩ gắn với tài khoản người dùng và chuyên khoa.',
+            );
+    }
+
+    public function test_user_index_page_is_available(): void
+    {
+        $this->withoutVite()
+            ->get('/users')
+            ->assertOk()
+            ->assertSee(
+                'Quản lý tài khoản nhân viên và vai trò truy cập hệ thống.',
+            );
+    }
+
     /**
      * Add/edit/detail live in modals on the list page, so every feature renders
      * the shared modal shell instead of extra create/detail routes.
@@ -92,6 +138,10 @@ class FrontendPageTest extends TestCase
             '/examinations' => ['examination-form-modal-title', 'examination-detail-title'],
             '/prescriptions' => ['prescription-form-modal-title', 'prescription-detail-title'],
             '/medicines' => ['medicine-form-modal-title', 'medicine-detail-title', 'medicine-stock-modal-title'],
+            '/invoices' => ['invoice-form-modal-title', 'invoice-detail-title'],
+            '/specialties' => ['specialty-form-modal-title', 'specialty-detail-title'],
+            '/doctors' => ['doctor-form-modal-title', 'doctor-detail-title'],
+            '/users' => ['user-form-modal-title', 'user-detail-title'],
         ];
 
         foreach ($pages as $url => $modalTitleIds) {

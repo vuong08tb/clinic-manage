@@ -13,7 +13,6 @@ use Illuminate\Validation\ValidationException;
  */
 class MedicineService
 {
-   
     public function paginate(array $filters): LengthAwarePaginator
     {
         return Medicine::query()
@@ -33,7 +32,6 @@ class MedicineService
         return $medicine;
     }
 
- 
     public function update(Medicine $medicine, array $data): Medicine
     {
         $medicine->update($data);

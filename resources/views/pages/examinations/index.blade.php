@@ -234,6 +234,10 @@
             <x-ui.button x-show="canCreatePrescription" x-on:click="goToCreatePrescription()">
                 Tạo toa thuốc
             </x-ui.button>
+
+            <x-ui.button x-show="canCreateInvoice" x-on:click="goToCreateInvoice()">
+                Tạo hóa đơn
+            </x-ui.button>
         </x-slot:footer>
     </x-ui.modal>
 

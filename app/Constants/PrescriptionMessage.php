@@ -30,7 +30,7 @@ final class PrescriptionMessage
     public const ITEM_UPDATE_FIELD_REQUIRED = 'At least one prescription item field must be provided.';
 
     public const ITEM_MEDICINE_CANNOT_BE_CHANGED = 'The prescription item medicine cannot be changed.';
-    
+
     public const LIST_RETRIEVED = 'Prescriptions retrieved';
 
     public const RETRIEVED = 'Prescription retrieved';
@@ -40,5 +40,4 @@ final class PrescriptionMessage
     public const SELECTED_PATIENT_NOT_FOUND = 'The selected patient does not exist.';
 
     public const PAGE_SIZE_TOO_LARGE = 'The page size may not be greater than 100.';
-
 }

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Constants\PaymentMessage;
 use App\Models\Invoice;
 use App\Models\Payment;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -14,6 +15,26 @@ use Illuminate\Validation\ValidationException;
 class PaymentService
 {
     public function __construct(private readonly PayPalService $payPalService) {}
+
+    /**
+     * Paginate payments with validated filters, most recent first.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    public function paginate(array $filters): LengthAwarePaginator
+    {
+        return Payment::query()
+            ->when(
+                isset($filters['invoice_id']),
+                fn ($query) => $query->where('invoice_id', $filters['invoice_id']),
+            )
+            ->when(
+                isset($filters['provider_order_id']),
+                fn ($query) => $query->where('provider_order_id', $filters['provider_order_id']),
+            )
+            ->orderByDesc('id')
+            ->paginate((int) ($filters['per_page'] ?? 15));
+    }
 
     /**
      * Create a pending payment for an unpaid invoice by opening a PayPal Order.

@@ -22,3 +22,21 @@ Route::view('/prescriptions', 'pages.prescriptions.index')
 
 Route::view('/medicines', 'pages.medicines.index')
     ->name('web.medicines.index');
+
+Route::view('/invoices', 'pages.invoices.index')
+    ->name('web.invoices.index');
+
+Route::view('/payments/return', 'pages.payments.return')
+    ->name('web.payments.return');
+
+Route::view('/payments/cancel', 'pages.payments.cancel')
+    ->name('web.payments.cancel');
+
+Route::view('/specialties', 'pages.specialties.index')
+    ->name('web.specialties.index');
+
+Route::view('/doctors', 'pages.doctors.index')
+    ->name('web.doctors.index');
+
+Route::view('/users', 'pages.users.index')
+    ->name('web.users.index');

@@ -320,30 +320,30 @@ Mục tiêu: dashboard role-aware, không gọi endpoint người dùng không c
 
 ### FE-08 — Hóa đơn và thanh toán
 
-- [ ] Danh sách hóa đơn theo status.
-- [ ] Modal chi tiết hiển thị examination và items.
-- [ ] Tạo/cập nhật/hủy hóa đơn theo permission.
-- [ ] Tạo payment và chuyển tới `approval_url`.
-- [ ] Có trang return/cancel PayPal riêng.
-- [ ] Capture payment và cập nhật trạng thái hóa đơn.
-- [ ] Không hiển thị hoặc log dữ liệu thanh toán nhạy cảm.
+- [x] Danh sách hóa đơn theo status.
+- [x] Modal chi tiết hiển thị examination và items.
+- [x] Tạo/cập nhật/hủy hóa đơn theo permission.
+- [x] Tạo payment và chuyển tới `approval_url`.
+- [x] Có trang return/cancel PayPal riêng.
+- [x] Capture payment và cập nhật trạng thái hóa đơn.
+- [x] Không hiển thị hoặc log dữ liệu thanh toán nhạy cảm.
 
 ### FE-09 — Chuyên khoa và bác sĩ
 
-- [ ] CRUD chuyên khoa bằng table + modal.
-- [ ] Danh sách bác sĩ có filter chuyên khoa.
-- [ ] Form bác sĩ chọn user và specialty.
-- [ ] Modal chi tiết bác sĩ.
-- [ ] Action theo `SPECIALTIES.*` và `DOCTORS.*`.
+- [x] CRUD chuyên khoa bằng table + modal.
+- [x] Danh sách bác sĩ có filter chuyên khoa.
+- [x] Form bác sĩ chọn user và specialty.
+- [x] Modal chi tiết bác sĩ.
+- [x] Action theo `SPECIALTIES.*` và `DOCTORS.*`.
 
 ### FE-10 — Người dùng
 
-- [ ] Bổ sung/xác nhận `/api/roles` trước khi làm form role selector.
-- [ ] Danh sách/search/filter role/status/pagination.
-- [ ] Modal thêm/sửa người dùng.
-- [ ] Confirm khóa/mở tài khoản.
-- [ ] Không cho thao tác làm mất admin hoạt động cuối cùng; hiển thị đúng lỗi backend.
-- [ ] Action theo `USERS.*`.
+- [x] Bổ sung/xác nhận `/api/roles` trước khi làm form role selector.
+- [x] Danh sách/search/filter role/status/pagination.
+- [x] Modal thêm/sửa người dùng.
+- [x] Confirm khóa/mở tài khoản.
+- [x] Không cho thao tác làm mất admin hoạt động cuối cùng; hiển thị đúng lỗi backend.
+- [x] Action theo `USERS.*`.
 
 ### FE-11 — Hoàn thiện và production hardening
 
@@ -361,9 +361,6 @@ Mục tiêu: dashboard role-aware, không gọi endpoint người dùng không c
 Các capability đã có trong tài liệu/RBAC nhưng chưa có route tương ứng trong source hiện tại:
 
 - `GET /api/stats` cho dashboard aggregate.
-- `GET /api/roles` cho role selector.
-- API list/detail thanh toán nếu cần màn hình giao dịch độc lập.
-- PayPal return/cancel route riêng cho frontend.
 
 Trong khi chưa có `/api/stats`, dashboard chỉ gọi các list endpoint mà user có permission và
 lấy `meta.total`; không phát request dẫn tới `403`.
@@ -643,3 +640,262 @@ Kiểm chứng:
   medicines, kể cả `DOCTOR` chỉ đọc và `RECEPTIONIST`/`CASHIER` không có quyền truy cập.
 - `npm run build`, `php artisan view:cache` sạch. Full backend suite: 199/208 pass; 9 fail vẫn là
   `AppointmentTest` do fixture ngày cố định, có sẵn từ trước, không phải regression của FE-07.
+
+### 2026-08-20 — Sửa lỗi hệ thống: sai lệch 7 giờ ở `scheduled_at`/`examined_at`
+
+- **Phát hiện qua QA thủ công FE-06/FE-07**: tạo lịch hẹn `11:00` VN nhưng danh sách và DB đều
+  hiện `04:00`. Không phải lỗi frontend (`fromLocalDateTimeInput` trong `appointment-form.js` tính
+  đúng UTC gửi lên) — lỗi nằm ở `config('app.timezone')`.
+- **Nguyên nhân gốc**: `.env` chưa từng set `APP_TIMEZONE`, nên rơi về default
+  `Asia/Ho_Chi_Minh` trong `config/app.php` (không phải `UTC` như nhật ký FE-04 từng ghi nhầm).
+  Cột `scheduled_at`/`examined_at` là `timestamp` (không kèm timezone) nên Postgres lưu nguyên văn
+  chuỗi số Laravel format ra, không tự quy đổi. Khi **ghi**: Carbon nhận chuỗi UTC có hậu tố `Z` từ
+  frontend, format ra DB đúng số UTC (bước này không phụ thuộc `app.timezone`). Khi **đọc lại**:
+  Carbon dùng `app.timezone` hiện tại để diễn giải số vừa đọc — với `Asia/Ho_Chi_Minh` thì con số
+  UTC đó bị hiểu nhầm thành giờ VN, lệch thêm 7 tiếng lần thứ hai. Đã tái hiện bằng Carbon thuần
+  (không cần DB) và xác nhận chính xác cơ chế.
+- **Fix**: thêm `APP_TIMEZONE=UTC` vào `.env`, `php artisan config:clear`. Vì bug chỉ nằm ở bước
+  *đọc*, dữ liệu cũ đã lưu (số UTC đúng, chỉ bị đọc sai) tự động hiển thị đúng trở lại sau khi sửa
+  — không cần backfill DB.
+- **Đánh đổi cần biết**: `created_at`/`updated_at` (sinh bằng `now()`, ghi/đọc luôn cùng
+  `app.timezone` nên tự nhất quán dưới cấu hình cũ) sẽ hiển thị lệch +7 giờ cho các bản ghi **tạo
+  trước** thời điểm sửa này; bản ghi tạo sau thì đúng ở mọi trường. Chấp nhận được vì đang là dữ
+  liệu dev/test.
+- `docker-compose.yml` có `TZ: Asia/Ho_Chi_Minh` ở container `app` — đây là timezone hệ điều hành,
+  không phải cấu hình Laravel (Laravel tự gọi `date_default_timezone_set(config('app.timezone'))`
+  lúc boot, ghi đè `TZ` của OS), nên không xung đột với fix này.
+- Nhân tiện sửa luôn `tests/Feature/AppointmentTest.php`: 24 chỗ hardcode ngày `2026-08-15`/
+  `2026-08-16` (nguồn gốc của 9 test fail lặp lại xuyên suốt nhật ký từ FE-03 đến FE-07 mỗi khi
+  "hôm nay" vượt qua mốc đó) — đẩy sang `2030-06-15`/`2030-06-16`. Đây là fix tạm thời kiểu cũ (đẩy
+  xa mốc cố định), chưa phải fix triệt để (đổi sang ngày tính tương đối theo `now()`); nếu muốn
+  vĩnh viễn không tái diễn thì cần viết lại các fixture này dùng ngày động.
+- Full backend suite sau cả 2 fix: **208/208 pass** — lần đầu tiên toàn bộ suite xanh hoàn toàn kể
+  từ khi bắt đầu nhật ký này.
+- Cần restart container (`docker compose restart app`) để Laravel đọc lại `.env` mới; không cần
+  rebuild image vì `.env` nằm trong volume mount `.:/var/www`.
+
+### 2026-08-20 — FE-08 (Hóa đơn và thanh toán)
+
+- Đóng 2 API gap trước khi làm UI: (1) `PaymentController` chỉ có `store`/`capture`, chưa có
+  `index` — thêm `ListPaymentsRequest` (filter `invoice_id`, `provider_order_id`),
+  `PaymentService::paginate()`, route `GET /payments`; quyền `PAYMENTS.FINDALL` đã có sẵn cho
+  CASHIER trong RBAC nên không cần sửa gì thêm. (2) `PayPalService::createOrder()` từng set cả
+  `return_url` lẫn `cancel_url` cùng trỏ về `config('app.url')` (trang chủ) — không phân biệt được
+  buyer đã duyệt hay đã hủy thanh toán. Đổi thành `/payments/return` và `/payments/cancel` (2 route
+  Blade riêng), PayPal tự thêm `?token=&PayerID=` vào URL khi redirect về.
+- Hoàn thiện FE-08: trang `/invoices` filter theo status, modal tạo/sửa (form modal chuẩn dùng
+  chung `formMode`, khác FE-06 vì `UpdateInvoiceRequest` đúng là một endpoint sửa toàn bộ record dù
+  chỉ có field `discount` sửa được — không cần lách quy ước như prescriptions), modal chi tiết
+  (`size="xl"`) hiển thị breakdown phí khám/tiền thuốc/giảm giá/tổng cộng, danh sách item toa thuốc
+  (nếu có), lịch sử thanh toán (dùng API `index` mới thêm), và form tạo thanh toán ngay trong modal
+  khi hóa đơn còn `unpaid` và còn số dư. Action theo `INVOICES.*`/`PAYMENTS.*`.
+- **Luồng thanh toán PayPal**: bấm "Thanh toán qua PayPal" trong modal chi tiết → gọi
+  `POST /invoices/{id}/payments` → redirect toàn trang (`window.location.href`) sang
+  `approval_url` PayPal trả về — đúng theo ghi chú README mục 5.2 (buyer flow chạy trên trang PayPal
+  hosted, repo này không có UI nhập thẻ). Sau khi buyer duyệt/hủy, PayPal redirect về
+  `/payments/return` hoặc `/payments/cancel` kèm `?token=<paypal_order_id>`.
+- **Vấn đề cần giải và cách giải**: trang `/payments/return` cần biết payment cục bộ nào tương ứng
+  để gọi `POST /payments/{id}/capture`, nhưng lúc tạo PayPal Order (trước khi có `payment.id` cục
+  bộ) chưa thể nhúng id đó vào `return_url` — thứ tự trong `PaymentService::create()` là tạo Order
+  trước, tạo bản ghi `Payment` sau. Cân nhắc dùng `sessionStorage` để nhớ `payment.id` trước khi
+  redirect nhưng không chắc chắn (PayPal có thể mở tab mới tùy trình duyệt). Chọn giải pháp chắc
+  chắn hơn: dùng chính `token` (= `provider_order_id`) PayPal trả về, gọi
+  `GET /api/payments?provider_order_id=<token>` (API vừa thêm ở trên) để tìm lại payment cục bộ —
+  đây là lý do chính khiến gap `index` cho payments đáng làm ngay, không chỉ để hiện lịch sử giao
+  dịch trong modal chi tiết.
+- **Trang `/payments/cancel`**: payment tạo trước đó vẫn ở trạng thái `pending` mãi mãi (backend
+  không có endpoint hủy payment) — không phải bug, vì `PaymentService::create()` chỉ cộng dồn các
+  payment `completed` khi tính số dư còn lại, nên 1 payment `pending` mồ côi không chặn việc thử
+  thanh toán lại. Trang cancel chỉ hiển thị thông báo, không cố gắng "dọn" payment đó.
+- **Deep link 2 chiều** trên `/invoices`: `?examination_id=` mở modal tạo (giống prescriptions),
+  `?invoice_id=` mở thẳng modal chi tiết — thêm mới so với các feature trước vì `/payments/return`
+  cần một cách quay lại đúng hóa đơn sau khi capture xong (lấy `invoice_id` từ chính response của
+  payment vừa capture).
+- Thêm nút "Tạo hóa đơn" vào footer modal chi tiết Phiếu khám (`/examinations`), song song với "Tạo
+  toa thuốc" đã có từ FE-06 — trỏ tới `/invoices?examination_id=<id>`. Không bắt buộc phải có toa
+  thuốc mới tạo được hóa đơn (`InvoiceService::createFromExamination` dùng `?->items` an toàn khi
+  không có prescription, chỉ tính phí khám).
+- "Không hiển thị hoặc log dữ liệu thanh toán nhạy cảm": `Payment` model không có số thẻ (PayPal xử
+  lý trên trang hosted của họ), UI chỉ hiện số tiền/phương thức/trạng thái/mã đơn PayPal
+  (`provider_order_id`, không phải secret, chỉ là id tham chiếu); không có `console.log` response
+  PayPal ở đâu trong code.
+- `core/permissions.js`: thêm `PERMISSIONS.INVOICES.*` và `PERMISSIONS.PAYMENTS.*`. Không cần sửa
+  `core/formatters.js` — `statusLabel`/`statusClasses` đã có sẵn đủ nhãn cho cả trạng thái hóa đơn
+  (`unpaid`/`paid`/`cancelled`) lẫn trạng thái thanh toán (`pending`/`completed`/`failed`).
+- Sửa 1 lỗi khi tự viết 2 trang return/cancel: `<x-ui.button :href="null" x-bind:href="...">` khiến
+  Blade luôn render `<button>` (vì `$href` được PHP đánh giá trước khi Alpine chạy), `x-bind:href`
+  trên thẻ `<button>` không có tác dụng điều hướng. Sửa bằng cách truyền sẵn `href="/invoices"` làm
+  giá trị mặc định để Blade render `<a>`, rồi `x-bind:href` cập nhật lại khi Alpine tính xong
+  `invoiceUrl`.
+- Self-test: thêm 4 test vào `PaymentTest.php` cho `index` (filter theo `invoice_id` và
+  `provider_order_id`, permission-denied, unauthenticated) — 23 pass. Thêm
+  `test_invoice_index_page_is_available`, `test_payment_return_and_cancel_pages_are_available` và
+  `/invoices` vào `test_feature_pages_render_modal_shells` trong `FrontendPageTest.php` — 12 pass.
+  `InvoiceTest.php`/`PaymentTest.php` có sẵn đã đủ RBAC theo role được phép/bị từ chối.
+- `npm run build`, `php artisan view:cache` sạch. Full backend suite: **213/213 pass**.
+
+### 2026-08-20 — Fix UX: lỗi 422 dạng business-rule bị nuốt mất ở `/invoices`
+
+- **Phát hiện qua QA thủ công**: user báo "hóa đơn đã hoàn thành vẫn sửa được". Không phải lỗi bảo
+  vệ dữ liệu (`InvoiceService::assertModifiable()` vẫn chặn đúng ở backend, không sửa được thật) —
+  mà là **thông báo lỗi bị nuốt mất** khiến hành vi bị hiểu nhầm thành "cho phép sửa".
+- Nguyên nhân: `ValidationException::withMessages(['invoice' => [...]])` (dùng ở
+  `InvoiceService::assertModifiable()`, `PaymentService::create()`) khiến `$exception->getMessage()`
+  — tức field `message` tổng ở JSON envelope — luôn là chuỗi chung chung mặc định của Laravel
+  ("The given data was invalid."), còn lý do thật ("Invoice can only be modified while unpaid.")
+  nằm trong `errors.invoice[0]`. `invoice` không phải tên field thật trên form (chỉ có
+  `examination_id`/`discount`/`amount`), nên `features/invoices/index.js` chưa từng hiển thị field
+  này ở đâu — người dùng chỉ thấy thông báo chung chung, không rõ vì sao.
+- Sửa cả 3 chỗ trong `features/invoices/index.js` bắt lỗi `ApiError` (`submitForm()` — sửa hóa đơn,
+  `confirmCancel()` — hủy hóa đơn, `submitPayment()` — tạo thanh toán): trước khi fallback về
+  `error.message` chung, thử `firstFieldError(error.errors, 'invoice')` (và `'examination'`/
+  `'status'`/`'amount'` tùy chỗ) để lấy đúng lý do nghiệp vụ cụ thể — cùng cách `describeItemError()`
+  của FE-06 (toa thuốc) đã xử lý cho field `items` không khớp tên input thật.
+  Đây là lỗi có thể tái diễn ở **bất kỳ feature nào khác dùng field lỗi không trùng tên input** —
+  cần soát lại nếu về sau thêm business-rule error mới ở service layer.
+- Không thêm chặn phía client dựa vào `invoice.status` cache sẵn trước khi gọi API (dù có thể ngăn
+  request thừa) — giữ đúng nguyên tắc mục 2.2 của tài liệu này: "Backend là nguồn sự thật cuối cùng
+  cho validation". `openEditModal()`/`askCancel()` đã chặn đúng theo state đang hiển thị; trường hợp
+  state đó bị cũ (ví dụ hóa đơn vừa được thanh toán ở tab khác) nay hiển thị đúng lý do backend từ
+  chối thay vì để lộ ra như một hành vi mơ hồ.
+- `npm run build`, full backend suite **213/213 pass** — không đổi hành vi backend nên không có test
+  mới, chỉ là fix hiển thị lỗi phía frontend.
+
+### 2026-08-20 — Fix dashboard: thẻ "Tạo hóa đơn" không hiện + toast placeholder lỗi thời
+
+- **Phát hiện qua QA thủ công**: thẻ "Tạo hóa đơn" ở "Thao tác nhanh" trên `/dashboard` không hiện
+  ra dù đã đăng nhập bằng tài khoản có quyền `INVOICES.CREATE`. Nguyên nhân: blade dùng
+  `x-show="canCreateInvoice"` nhưng `features/dashboard/index.js` **chưa từng định nghĩa getter
+  này** — Alpine đọc `undefined` (falsy) nên thẻ luôn ẩn, không liên quan gì tới quyền thật. Thêm
+  `get canCreateInvoice()` (đối chiếu `PERMISSIONS.INVOICES.CREATE`, cùng cách các getter
+  `canCreatePatient`/`canCreateAppointment` đã có).
+- Nhân tiện phát hiện thêm: cả 2 thẻ "Tạo lịch hẹn" và "Tạo hóa đơn" đều còn sót
+  `x-on:click="$store.ui.notify('... sẽ được triển khai trong FE-04/FE-08.')"` từ thời các feature
+  này chưa làm xong — nay đã hoàn thiện từ lâu nhưng toast "chưa có" vẫn hiện song song lúc bấm
+  (link vẫn điều hướng đúng vì trình duyệt tự theo `href`, chỉ là hiện thêm 1 toast sai gây rối
+  mắt). Đã xóa cả 2 handler thừa. Đối chiếu lại: `topbar.blade.php` (thông báo) và
+  `sidebar.blade.php` (tooltip mục `ready:false`) vẫn đúng, không sửa, vì đó là tính năng thật sự
+  chưa làm (FE-09/FE-10 và trung tâm thông báo).
+- `npm run build`, `php artisan view:cache`, full backend suite **213/213 pass**.
+
+### 2026-08-20 — FE-09 (Chuyên khoa và bác sĩ)
+
+- Backend đầy đủ CRUD cho cả 2 (`SpecialtyController`/`DoctorController` là `apiResource` trọn vẹn,
+  không thiếu route nào như FE-06) — nhưng phát hiện 1 lỗ hổng UX giống hệt lớp lỗi vừa vá ở
+  invoices: `doctors.specialty_id`, `appointments.doctor_id`, `examinations.doctor_id`,
+  `prescriptions.doctor_id` đều `restrictOnDelete()`. Xóa 1 chuyên khoa đang có bác sĩ, hoặc xóa 1
+  bác sĩ đang có lịch hẹn/phiếu khám/toa thuốc, sẽ khiến Postgres chặn ở tầng DB và ném
+  `QueryException` thô ra ngoài — chưa được `SpecialtyService`/`DoctorService` bắt lại, nên
+  frontend sẽ nhận nguyên lỗi 500 (có thể lộ cả câu SQL vì `APP_DEBUG=true`). Vá bằng cách bắt
+  `QueryException`, nhận diện đúng cả 2 driver (`23503` của Postgres — driver thật của production;
+  `23000` của SQLite — driver test suite dùng, xem `phpunit.xml`), chuyển thành `ValidationException`
+  422 với message rõ ràng (`SPECIALTY_HAS_DOCTORS`/`DOCTOR_HAS_DEPENDENT_RECORDS`). Thêm 2 test xác
+  nhận (`test_delete_rejects_specialty_with_assigned_doctors`,
+  `test_delete_rejects_doctor_with_dependent_records`).
+- Hoàn thiện FE-09: `/specialties` là CRUD đơn giản nhất trong app (chỉ tên + mô tả, mirror gần như
+  y hệt patients) — table + form modal (thêm/sửa dùng chung `formMode`) + detail modal (dù checklist
+  không bắt buộc, thêm vào cho nhất quán với quy ước Xem/Sửa/Xóa toàn app, giống cách FE-07 đã làm)
+  + confirm popup xóa. `/doctors` filter theo `specialty_id` (dropdown, load từ `GET /specialties`),
+  form chọn user qua combobox tìm kiếm + chọn specialty qua `<select>` (danh sách chuyên khoa nhỏ,
+  không cần search), modal chi tiết, confirm popup xóa. Action theo `SPECIALTIES.*`/`DOCTORS.*`.
+- **Vấn đề chọn user cho form bác sĩ**: `StoreDoctorRequest`/`UpdateDoctorRequest` yêu cầu
+  `user_id` phải trỏ tới user có role `DOCTOR` (`USER_MUST_HAVE_DOCTOR_ROLE`), nhưng
+  `GET /api/users` chỉ filter được theo `role_id` (số), không theo tên role, và `GET /api/roles`
+  vẫn là gap đã ghi nhận từ trước (chưa làm, dành cho FE-10) — không thể tra `role_id` của DOCTOR
+  từ frontend một cách "sạch" (không hardcode magic number). Giải bằng cách tận dụng
+  `UserService::paginate()` vốn đã `with('role')` sẵn: gọi `GET /users?q=...` bình thường rồi lọc
+  client-side `user.role?.name === 'DOCTOR'` trước khi hiện trong combobox
+  (`searchDoctorEligibleUsers()` trong `doctor-api.js`) — người dùng chỉ thấy đúng các tài khoản
+  hợp lệ, không cần đợi `GET /api/roles` mới làm được. Combobox này chỉ ADMIN nhìn thấy (chỉ ADMIN
+  có `DOCTORS.CREATE`/`UPDATE`), nên chắc chắn có sẵn `USERS.FINDALL` để gọi API này.
+- Không thêm mục "Thanh toán" riêng vào sidebar (dù sơ đồ điều hướng ở mục 4 của tài liệu này có
+  liệt kê) — thanh toán quản lý ngay trong modal chi tiết hóa đơn từ FE-08, không có màn hình CRUD
+  độc lập, giữ đúng tinh thần "trang danh sách là trang chính của chức năng".
+- Self-test: thêm `test_specialty_index_page_is_available`, `test_doctor_index_page_is_available`
+  và `/specialties`, `/doctors` vào `test_feature_pages_render_modal_shells` trong
+  `FrontendPageTest.php` — 14 pass. `SpecialtyTest.php`/`DoctorTest.php` có sẵn đã đủ RBAC theo
+  role được phép/bị từ chối (chỉ ADMIN ghi được, RECEPTIONIST/DOCTOR chỉ đọc, PHARMACIST/CASHIER
+  không có quyền truy cập).
+- `npm run build`, `php artisan view:cache`, `vendor/bin/pint --test` sạch. Full backend suite:
+  **217/217 pass**.
+
+### 2026-08-20 — FE-10 (Người dùng) — đóng gap `GET /api/roles`
+
+- Đóng đúng gap checklist yêu cầu xác nhận trước: `config/rbac.php` đã map sẵn
+  `RoleController => ROLES` và permission `ROLES.FINDALL` đã được seed (cấp cho ADMIN qua "all
+  permissions"), nhưng chưa hề có `RoleController`/route nào — y hệt kiểu gap đã gặp ở FE-06
+  (prescriptions). Thêm `RoleService::all()` (trả 5 role cố định, không cần pagination vì danh mục
+  nhỏ, dùng `ApiResponse::collection()` thay vì `paginated()`), `RoleResource`
+  (`id`/`name`/`display_name`), `RoleController::index()`, route `GET /roles`. Thêm
+  `tests/Feature/RoleTest.php` (3 test: ADMIN xem được, role khác bị chặn đúng permission,
+  chưa đăng nhập bị chặn).
+- Hoàn thiện FE-10: `/users` filter theo `q` (tên/email), `role_id` (dropdown từ `GET /roles`),
+  `is_active` (dropdown). Modal thêm/sửa dùng chung `formMode`: form sửa có thêm checkbox "Đổi mật
+  khẩu" để ẩn/hiện field mật khẩu (mặc định không đổi, chỉ gửi `password` lên khi người dùng chủ
+  động tick). **`is_active` không bao giờ được gửi qua form thêm/sửa** — backend chủ động
+  `prohibited` field này ở `StoreUserRequest`/`UpdateUserRequest`
+  (`USE_STATUS_ENDPOINT`), bắt buộc đổi trạng thái qua `PATCH /users/{id}/status` riêng — khớp
+  đúng thiết kế "Confirm khóa/mở tài khoản" của checklist. Action theo `USERS.*`.
+- **"Không cho thao tác làm mất admin hoạt động cuối cùng"**: backend
+  (`UserService::assertNotLastActiveAdmin`) đã tự chặn và trả lỗi field `role_id` (khi đổi role)
+  hoặc `is_active` (khi khóa) — cả hai đều là tên field thật khớp với input/action tương ứng nên
+  không dính lỗi "field lạ bị nuốt message" như đã gặp ở invoices/specialties; chỉ cần
+  `fieldError('role_id')` trong form và bắt `firstFieldError(error.errors, 'is_active')` khi khóa
+  tài khoản là hiển thị đúng nguyên văn lý do backend.
+- Sửa 2 lỗi tự phát hiện khi viết `pages/users/index.blade.php`: dùng nhầm `icon-expr` trên
+  `<x-ui.row-action>` (component chỉ có `icon` tĩnh, không có prop động cho icon — không giống
+  `label-expr`/`tone-expr`) và `confirm-label-expr`/`variant-expr` trên `<x-ui.confirm-modal>`
+  (component chỉ có `title-expr` động, còn `confirmLabel`/`variant` là prop tĩnh). Sửa bằng cách
+  tách 2 nút "Khóa"/"Mở khóa" riêng (mỗi nút icon tĩnh, `x-show` theo `user.is_active`, giống cách
+  các nút chuyển trạng thái lịch hẹn ở FE-04), và dùng `confirm-label`/`variant` tĩnh cho popup xác
+  nhận (tiêu đề `title-expr` động đã đủ rõ ngữ cảnh khóa hay mở khóa).
+- Nút khóa/mở khóa tài khoản của chính mình vẫn hiện bình thường (không tự ẩn) — chỉ thêm dòng cảnh
+  báo nhỏ trong popup xác nhận ("Đây là tài khoản bạn đang đăng nhập…") vì backend đã tự cho phép
+  trường hợp còn ≥ 2 admin hoạt động (`test_admin_can_deactivate_self_when_another_active_admin_remains`),
+  không cần chặn phía client.
+- Self-test: thêm `test_user_index_page_is_available` và `/users` vào
+  `test_feature_pages_render_modal_shells` trong `FrontendPageTest.php` — 15 pass. `UserTest.php`
+  có sẵn (`test_non_admin_roles_cannot_manage_users`,
+  `test_last_active_admin_cannot_be_assigned_another_role`,
+  `test_last_active_admin_cannot_be_deactivated_through_status`, …) đã đủ RBAC và business rule,
+  không cần viết thêm ngoài `RoleTest.php`.
+- `npm run build`, `php artisan view:cache`, `vendor/bin/pint --test` sạch. Full backend suite:
+  **221/221 pass**.
+- Checklist mục 6 (API gap) giờ chỉ còn `GET /api/stats` — mọi gap khác đã đóng qua FE-06/FE-09/FE-10.
+
+### 2026-08-20 — T3.17 (Seeder dữ liệu demo đầy đủ luồng khám)
+
+- Task backend thuần (không thuộc checklist FE-XX ở trên), ghi lại đây cho liền mạch nhật ký.
+  `database/seeders/DemoSeeder.php`: seed 5 chuyên khoa, 6 bác sĩ (kèm tài khoản đăng nhập), 1 tài
+  khoản demo cho mỗi vai trò còn lại (RECEPTIONIST/PHARMACIST/CASHIER — để click thử được toàn bộ
+  luồng theo từng role mà không phải tự tạo tài khoản), 20 bệnh nhân (tên tiếng Việt sinh ngẫu
+  nhiên qua hàm `vietnameseName()` riêng vì `APP_FAKER_LOCALE=en_US` mặc định ra tên kiểu Mỹ, không
+  hợp demo phòng khám Việt Nam), 18 thuốc thông dụng, và với mỗi bác sĩ: 3 lịch hẹn sắp tới
+  (scheduled/confirmed/cancelled) + 2 lịch đã khám xong kèm đủ chuỗi phiếu khám → toa thuốc (lượt
+  khám đầu) → hóa đơn → thanh toán (lượt đầu thanh toán đủ, lượt hai để `unpaid` demo luồng tạo
+  thanh toán).
+- **Quyết định quan trọng**: gọi thẳng `PrescriptionService::createFromExamination()` và
+  `InvoiceService::createFromExamination()` thật thay vì tự tính lại `subtotal`/`total`/trừ tồn
+  kho bằng tay trong seeder — đảm bảo dữ liệu demo luôn khớp 100% với business rule thật (nếu sau
+  này đổi công thức tính hóa đơn, seeder tự động đúng theo, không cần sửa 2 chỗ). Riêng
+  `PaymentService::capture()` **không** gọi vì nó gọi API PayPal thật qua HTTP — seeder phải chạy
+  offline được, nên với các hóa đơn demo là "đã thanh toán", tạo thẳng `Payment` completed qua
+  factory rồi set `Invoice::STATUS_PAID` tay, chỉ giả lập đúng trạng thái cuối cùng chứ không tái
+  hiện luồng capture thật.
+- `DemoSeeder::run()` tự gọi `RoleSeeder`/`RbacSeeder`/`AdminSeeder` trước (cả 3 đều upsert nên gọi
+  lại an toàn) — chạy được `db:seed --class=DemoSeeder` một lệnh duy nhất trên DB trống là đủ, không
+  cần nhớ chạy 3 seeder khác trước.
+- Chuyên khoa/bác sĩ/3 tài khoản nghiệp vụ dùng `updateOrCreate` theo khóa tự nhiên (tên chuyên
+  khoa, email) nên **chạy lại an toàn**; bệnh nhân/lịch hẹn/phiếu khám/toa/hóa đơn/thanh toán thì
+  **không** — chạy 2 lần sẽ tạo thêm dữ liệu random mới chồng lên (không lỗi, nhưng không dedupe).
+  Ghi rõ trong docblock của seeder và README. Seeder nhắm tới dùng trên DB trống
+  (`migrate:fresh --seed` hoặc `db:seed --class=DemoSeeder` ngay sau khi migrate), không phải để
+  chạy lặp lại trên DB đã có dữ liệu thật.
+- Self-test: `tests/Feature/DemoSeederTest.php` — chạy seeder thật trong test (DB SQLite), assert
+  đúng số lượng từng bảng theo từng trạng thái, assert **số tiền đã thanh toán của mỗi hóa đơn
+  `paid` khớp chính xác `total`** (chứng minh money math của `InvoiceService` chạy đúng qua seeder
+  chứ không phải số bịa), và assert tài khoản bác sĩ vừa seed đăng nhập gọi API thật được. Thêm test
+  thứ 2 xác nhận chạy seeder 2 lần không nhân đôi chuyên khoa/bác sĩ/tài khoản nghiệp vụ. Cả 2 pass
+  ngay lần viết đầu tiên.
+- Thêm bảng tài khoản demo + hướng dẫn lệnh vào `README.md` mục 3.
+- `vendor/bin/pint --test` sạch. Full backend suite: **223/223 pass**.

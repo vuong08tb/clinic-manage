@@ -34,4 +34,6 @@ final class DoctorMessage
     public const USER_MUST_HAVE_DOCTOR_ROLE = 'The selected user must have the DOCTOR role.';
 
     public const USER_WITH_PROFILE_MUST_KEEP_DOCTOR_ROLE = 'A user with a doctor profile must keep the DOCTOR role.';
+
+    public const DOCTOR_HAS_DEPENDENT_RECORDS = 'This doctor cannot be deleted because they have appointments, examinations, or prescriptions on record.';
 }
