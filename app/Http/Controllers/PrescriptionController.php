@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Constants\PrescriptionMessage;
 use App\Http\Requests\Prescription\AddPrescriptionItemRequest;
+use App\Http\Requests\Prescription\ListPrescriptionsRequest;
 use App\Http\Requests\Prescription\StorePrescriptionRequest;
 use App\Http\Requests\Prescription\UpdatePrescriptionItemRequest;
 use App\Http\Resources\PrescriptionItemResource;
@@ -14,7 +15,6 @@ use App\Models\PrescriptionItem;
 use App\Services\PrescriptionService;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
-use App\Http\Requests\Prescription\ListPrescriptionsRequest;
 
 /**
  * Expose permission-protected prescription endpoints.
@@ -25,7 +25,8 @@ class PrescriptionController extends Controller
      * Create a new prescription controller instance.
      */
     public function __construct(private readonly PrescriptionService $service) {}
-        /**
+
+    /**
      * Return filtered and paginated prescriptions.
      */
     public function index(ListPrescriptionsRequest $request): JsonResponse
@@ -38,7 +39,8 @@ class PrescriptionController extends Controller
             Response::HTTP_OK,
         );
     }
-        /**
+
+    /**
      * Return a prescription with its clinical context.
      */
     public function show(Prescription $prescription): JsonResponse

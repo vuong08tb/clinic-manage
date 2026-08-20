@@ -81,6 +81,10 @@ export function examinationIndexPage() {
             return this.$store.auth.can(PERMISSIONS.PRESCRIPTIONS.CREATE);
         },
 
+        get canCreateInvoice() {
+            return this.$store.auth.can(PERMISSIONS.INVOICES.CREATE);
+        },
+
         get visiblePages() {
             return calculateVisiblePages(this.meta);
         },
@@ -496,6 +500,16 @@ export function examinationIndexPage() {
             }
 
             window.location.href = `/prescriptions?examination_id=${examination.id}`;
+        },
+
+        goToCreateInvoice() {
+            const examination = this.detail;
+
+            if (!examination) {
+                return;
+            }
+
+            window.location.href = `/invoices?examination_id=${examination.id}`;
         },
 
         handleEscape() {

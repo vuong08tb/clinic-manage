@@ -81,6 +81,10 @@ export function dashboardPage() {
             return this.$store.auth.can(PERMISSIONS.APPOINTMENTS.FINDALL);
         },
 
+        get canCreateInvoice() {
+            return this.$store.auth.can(PERMISSIONS.INVOICES.CREATE);
+        },
+
         async init() {
             const user = await this.$store.auth.bootstrap();
 

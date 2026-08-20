@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Constants\PaymentMessage;
+use App\Http\Requests\Payment\ListPaymentsRequest;
 use App\Http\Requests\Payment\StorePaymentRequest;
 use App\Http\Resources\PaymentResource;
 use App\Http\Responses\ApiResponse;
@@ -21,6 +22,20 @@ class PaymentController extends Controller
      * Create a new payment controller instance.
      */
     public function __construct(private readonly PaymentService $service) {}
+
+    /**
+     * Return filtered and paginated payments.
+     */
+    public function index(ListPaymentsRequest $request): JsonResponse
+    {
+        $payments = $this->service->paginate($request->validated());
+
+        return ApiResponse::paginated(
+            PaymentResource::collection($payments),
+            PaymentMessage::LIST_RETRIEVED,
+            Response::HTTP_OK,
+        );
+    }
 
     /**
      * Create a pending payment for an invoice by opening a PayPal Order.

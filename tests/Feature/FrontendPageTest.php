@@ -80,6 +80,22 @@ class FrontendPageTest extends TestCase
             );
     }
 
+    public function test_invoice_index_page_is_available(): void
+    {
+        $this->withoutVite()
+            ->get('/invoices')
+            ->assertOk()
+            ->assertSee(
+                'Hóa đơn lập từ phiếu khám, theo dõi thanh toán qua PayPal.',
+            );
+    }
+
+    public function test_payment_return_and_cancel_pages_are_available(): void
+    {
+        $this->withoutVite()->get('/payments/return')->assertOk();
+        $this->withoutVite()->get('/payments/cancel')->assertOk();
+    }
+
     /**
      * Add/edit/detail live in modals on the list page, so every feature renders
      * the shared modal shell instead of extra create/detail routes.
@@ -92,6 +108,7 @@ class FrontendPageTest extends TestCase
             '/examinations' => ['examination-form-modal-title', 'examination-detail-title'],
             '/prescriptions' => ['prescription-form-modal-title', 'prescription-detail-title'],
             '/medicines' => ['medicine-form-modal-title', 'medicine-detail-title', 'medicine-stock-modal-title'],
+            '/invoices' => ['invoice-form-modal-title', 'invoice-detail-title'],
         ];
 
         foreach ($pages as $url => $modalTitleIds) {

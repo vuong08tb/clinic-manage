@@ -146,12 +146,11 @@
 
         <aside class="surface-card h-fit p-5 sm:p-6">
             <h2 class="font-bold text-slate-900">Thao tác nhanh</h2>
-            <p class="mt-1 text-sm text-slate-500">Các màn hình nghiệp vụ sẽ được mở theo kế hoạch.</p>
+            <p class="mt-1 text-sm text-slate-500">Lối tắt tới các màn hình nghiệp vụ theo quyền của bạn.</p>
 
             <div class="mt-5 space-y-2">
                 <a x-show="canCreateAppointment" href="{{ route('web.appointments.index') }}"
-                    class="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-blue-200 hover:bg-blue-50"
-                    x-on:click="$store.ui.notify('Màn hình tạo lịch hẹn sẽ được triển khai trong FE-04.')">
+                    class="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-blue-200 hover:bg-blue-50">
                     <span class="grid h-9 w-9 place-items-center rounded-lg bg-blue-100 text-blue-700">
                         <x-ui.icon name="calendar" />
                     </span>
@@ -160,32 +159,31 @@
                         <span class="block text-xs text-slate-500">Quản lý lịch hẹn khám bệnh</span>
                     </span>
                     <x-ui.icon name="arrow-right" size="h-4 w-4" class="text-slate-400" />
-                    </button>
+                </a>
 
-                    <a x-show="canCreatePatient" href="{{ route('web.patients.index') }}"
-                        class="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-teal-200 hover:bg-teal-50">
-                        <span class="grid h-9 w-9 place-items-center rounded-lg bg-teal-100 text-teal-700">
-                            <x-ui.icon name="patients" />
-                        </span>
-                        <span class="min-w-0 flex-1">
-                            <span class="block text-sm font-semibold text-slate-800">Thêm bệnh nhân</span>
-                            <span class="block text-xs text-slate-500">Quản lý hồ sơ bệnh nhân</span>
-                        </span>
-                        <x-ui.icon name="arrow-right" size="h-4 w-4" class="text-slate-400" />
-                    </a>
+                <a x-show="canCreatePatient" href="{{ route('web.patients.index') }}"
+                    class="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-teal-200 hover:bg-teal-50">
+                    <span class="grid h-9 w-9 place-items-center rounded-lg bg-teal-100 text-teal-700">
+                        <x-ui.icon name="patients" />
+                    </span>
+                    <span class="min-w-0 flex-1">
+                        <span class="block text-sm font-semibold text-slate-800">Thêm bệnh nhân</span>
+                        <span class="block text-xs text-slate-500">Quản lý hồ sơ bệnh nhân</span>
+                    </span>
+                    <x-ui.icon name="arrow-right" size="h-4 w-4" class="text-slate-400" />
+                </a>
 
-                    <button x-show="$store.auth.can('INVOICES.CREATE')" type="button"
-                        class="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-amber-200 hover:bg-amber-50"
-                        x-on:click="$store.ui.notify('Màn hình tạo hóa đơn sẽ được triển khai trong FE-08.')">
-                        <span class="grid h-9 w-9 place-items-center rounded-lg bg-amber-100 text-amber-700">
-                            <x-ui.icon name="invoice" />
-                        </span>
-                        <span class="min-w-0 flex-1">
-                            <span class="block text-sm font-semibold text-slate-800">Tạo hóa đơn</span>
-                            <span class="block text-xs text-slate-500">Task FE-08</span>
-                        </span>
-                        <x-ui.icon name="arrow-right" size="h-4 w-4" class="text-slate-400" />
-                    </button>
+                <a x-show="canCreateInvoice" href="{{ route('web.invoices.index') }}"
+                    class="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-amber-200 hover:bg-amber-50">
+                    <span class="grid h-9 w-9 place-items-center rounded-lg bg-amber-100 text-amber-700">
+                        <x-ui.icon name="invoice" />
+                    </span>
+                    <span class="min-w-0 flex-1">
+                        <span class="block text-sm font-semibold text-slate-800">Tạo hóa đơn</span>
+                        <span class="block text-xs text-slate-500">Quản lý danh sách hóa đơn</span>
+                    </span>
+                    <x-ui.icon name="arrow-right" size="h-4 w-4" class="text-slate-400" />
+                </a>
             </div>
 
             <div class="mt-5 rounded-xl bg-slate-50 p-4">

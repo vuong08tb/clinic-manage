@@ -35,7 +35,8 @@ request()->routeIs('dashboard'), 'permissions' => [], 'ready' => true],
 [
 'label' => 'Tài chính',
 'items' => [
-['label' => 'Hóa đơn', 'icon' => 'invoice', 'permissions' => ['INVOICES.FINDALL'], 'ready' => false],
+['label' => 'Hóa đơn', 'icon' => 'invoice', 'href' => route('web.invoices.index'),
+'active' => request()->routeIs('web.invoices.*'), 'permissions' => ['INVOICES.FINDALL'], 'ready' => true],
 ],
 ],
 [

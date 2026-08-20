@@ -320,13 +320,13 @@ Mục tiêu: dashboard role-aware, không gọi endpoint người dùng không c
 
 ### FE-08 — Hóa đơn và thanh toán
 
-- [ ] Danh sách hóa đơn theo status.
-- [ ] Modal chi tiết hiển thị examination và items.
-- [ ] Tạo/cập nhật/hủy hóa đơn theo permission.
-- [ ] Tạo payment và chuyển tới `approval_url`.
-- [ ] Có trang return/cancel PayPal riêng.
-- [ ] Capture payment và cập nhật trạng thái hóa đơn.
-- [ ] Không hiển thị hoặc log dữ liệu thanh toán nhạy cảm.
+- [x] Danh sách hóa đơn theo status.
+- [x] Modal chi tiết hiển thị examination và items.
+- [x] Tạo/cập nhật/hủy hóa đơn theo permission.
+- [x] Tạo payment và chuyển tới `approval_url`.
+- [x] Có trang return/cancel PayPal riêng.
+- [x] Capture payment và cập nhật trạng thái hóa đơn.
+- [x] Không hiển thị hoặc log dữ liệu thanh toán nhạy cảm.
 
 ### FE-09 — Chuyên khoa và bác sĩ
 
@@ -362,8 +362,6 @@ Các capability đã có trong tài liệu/RBAC nhưng chưa có route tương �
 
 - `GET /api/stats` cho dashboard aggregate.
 - `GET /api/roles` cho role selector.
-- API list/detail thanh toán nếu cần màn hình giao dịch độc lập.
-- PayPal return/cancel route riêng cho frontend.
 
 Trong khi chưa có `/api/stats`, dashboard chỉ gọi các list endpoint mà user có permission và
 lấy `meta.total`; không phát request dẫn tới `403`.
@@ -676,3 +674,107 @@ Kiểm chứng:
   từ khi bắt đầu nhật ký này.
 - Cần restart container (`docker compose restart app`) để Laravel đọc lại `.env` mới; không cần
   rebuild image vì `.env` nằm trong volume mount `.:/var/www`.
+
+### 2026-08-20 — FE-08 (Hóa đơn và thanh toán)
+
+- Đóng 2 API gap trước khi làm UI: (1) `PaymentController` chỉ có `store`/`capture`, chưa có
+  `index` — thêm `ListPaymentsRequest` (filter `invoice_id`, `provider_order_id`),
+  `PaymentService::paginate()`, route `GET /payments`; quyền `PAYMENTS.FINDALL` đã có sẵn cho
+  CASHIER trong RBAC nên không cần sửa gì thêm. (2) `PayPalService::createOrder()` từng set cả
+  `return_url` lẫn `cancel_url` cùng trỏ về `config('app.url')` (trang chủ) — không phân biệt được
+  buyer đã duyệt hay đã hủy thanh toán. Đổi thành `/payments/return` và `/payments/cancel` (2 route
+  Blade riêng), PayPal tự thêm `?token=&PayerID=` vào URL khi redirect về.
+- Hoàn thiện FE-08: trang `/invoices` filter theo status, modal tạo/sửa (form modal chuẩn dùng
+  chung `formMode`, khác FE-06 vì `UpdateInvoiceRequest` đúng là một endpoint sửa toàn bộ record dù
+  chỉ có field `discount` sửa được — không cần lách quy ước như prescriptions), modal chi tiết
+  (`size="xl"`) hiển thị breakdown phí khám/tiền thuốc/giảm giá/tổng cộng, danh sách item toa thuốc
+  (nếu có), lịch sử thanh toán (dùng API `index` mới thêm), và form tạo thanh toán ngay trong modal
+  khi hóa đơn còn `unpaid` và còn số dư. Action theo `INVOICES.*`/`PAYMENTS.*`.
+- **Luồng thanh toán PayPal**: bấm "Thanh toán qua PayPal" trong modal chi tiết → gọi
+  `POST /invoices/{id}/payments` → redirect toàn trang (`window.location.href`) sang
+  `approval_url` PayPal trả về — đúng theo ghi chú README mục 5.2 (buyer flow chạy trên trang PayPal
+  hosted, repo này không có UI nhập thẻ). Sau khi buyer duyệt/hủy, PayPal redirect về
+  `/payments/return` hoặc `/payments/cancel` kèm `?token=<paypal_order_id>`.
+- **Vấn đề cần giải và cách giải**: trang `/payments/return` cần biết payment cục bộ nào tương ứng
+  để gọi `POST /payments/{id}/capture`, nhưng lúc tạo PayPal Order (trước khi có `payment.id` cục
+  bộ) chưa thể nhúng id đó vào `return_url` — thứ tự trong `PaymentService::create()` là tạo Order
+  trước, tạo bản ghi `Payment` sau. Cân nhắc dùng `sessionStorage` để nhớ `payment.id` trước khi
+  redirect nhưng không chắc chắn (PayPal có thể mở tab mới tùy trình duyệt). Chọn giải pháp chắc
+  chắn hơn: dùng chính `token` (= `provider_order_id`) PayPal trả về, gọi
+  `GET /api/payments?provider_order_id=<token>` (API vừa thêm ở trên) để tìm lại payment cục bộ —
+  đây là lý do chính khiến gap `index` cho payments đáng làm ngay, không chỉ để hiện lịch sử giao
+  dịch trong modal chi tiết.
+- **Trang `/payments/cancel`**: payment tạo trước đó vẫn ở trạng thái `pending` mãi mãi (backend
+  không có endpoint hủy payment) — không phải bug, vì `PaymentService::create()` chỉ cộng dồn các
+  payment `completed` khi tính số dư còn lại, nên 1 payment `pending` mồ côi không chặn việc thử
+  thanh toán lại. Trang cancel chỉ hiển thị thông báo, không cố gắng "dọn" payment đó.
+- **Deep link 2 chiều** trên `/invoices`: `?examination_id=` mở modal tạo (giống prescriptions),
+  `?invoice_id=` mở thẳng modal chi tiết — thêm mới so với các feature trước vì `/payments/return`
+  cần một cách quay lại đúng hóa đơn sau khi capture xong (lấy `invoice_id` từ chính response của
+  payment vừa capture).
+- Thêm nút "Tạo hóa đơn" vào footer modal chi tiết Phiếu khám (`/examinations`), song song với "Tạo
+  toa thuốc" đã có từ FE-06 — trỏ tới `/invoices?examination_id=<id>`. Không bắt buộc phải có toa
+  thuốc mới tạo được hóa đơn (`InvoiceService::createFromExamination` dùng `?->items` an toàn khi
+  không có prescription, chỉ tính phí khám).
+- "Không hiển thị hoặc log dữ liệu thanh toán nhạy cảm": `Payment` model không có số thẻ (PayPal xử
+  lý trên trang hosted của họ), UI chỉ hiện số tiền/phương thức/trạng thái/mã đơn PayPal
+  (`provider_order_id`, không phải secret, chỉ là id tham chiếu); không có `console.log` response
+  PayPal ở đâu trong code.
+- `core/permissions.js`: thêm `PERMISSIONS.INVOICES.*` và `PERMISSIONS.PAYMENTS.*`. Không cần sửa
+  `core/formatters.js` — `statusLabel`/`statusClasses` đã có sẵn đủ nhãn cho cả trạng thái hóa đơn
+  (`unpaid`/`paid`/`cancelled`) lẫn trạng thái thanh toán (`pending`/`completed`/`failed`).
+- Sửa 1 lỗi khi tự viết 2 trang return/cancel: `<x-ui.button :href="null" x-bind:href="...">` khiến
+  Blade luôn render `<button>` (vì `$href` được PHP đánh giá trước khi Alpine chạy), `x-bind:href`
+  trên thẻ `<button>` không có tác dụng điều hướng. Sửa bằng cách truyền sẵn `href="/invoices"` làm
+  giá trị mặc định để Blade render `<a>`, rồi `x-bind:href` cập nhật lại khi Alpine tính xong
+  `invoiceUrl`.
+- Self-test: thêm 4 test vào `PaymentTest.php` cho `index` (filter theo `invoice_id` và
+  `provider_order_id`, permission-denied, unauthenticated) — 23 pass. Thêm
+  `test_invoice_index_page_is_available`, `test_payment_return_and_cancel_pages_are_available` và
+  `/invoices` vào `test_feature_pages_render_modal_shells` trong `FrontendPageTest.php` — 12 pass.
+  `InvoiceTest.php`/`PaymentTest.php` có sẵn đã đủ RBAC theo role được phép/bị từ chối.
+- `npm run build`, `php artisan view:cache` sạch. Full backend suite: **213/213 pass**.
+
+### 2026-08-20 — Fix UX: lỗi 422 dạng business-rule bị nuốt mất ở `/invoices`
+
+- **Phát hiện qua QA thủ công**: user báo "hóa đơn đã hoàn thành vẫn sửa được". Không phải lỗi bảo
+  vệ dữ liệu (`InvoiceService::assertModifiable()` vẫn chặn đúng ở backend, không sửa được thật) —
+  mà là **thông báo lỗi bị nuốt mất** khiến hành vi bị hiểu nhầm thành "cho phép sửa".
+- Nguyên nhân: `ValidationException::withMessages(['invoice' => [...]])` (dùng ở
+  `InvoiceService::assertModifiable()`, `PaymentService::create()`) khiến `$exception->getMessage()`
+  — tức field `message` tổng ở JSON envelope — luôn là chuỗi chung chung mặc định của Laravel
+  ("The given data was invalid."), còn lý do thật ("Invoice can only be modified while unpaid.")
+  nằm trong `errors.invoice[0]`. `invoice` không phải tên field thật trên form (chỉ có
+  `examination_id`/`discount`/`amount`), nên `features/invoices/index.js` chưa từng hiển thị field
+  này ở đâu — người dùng chỉ thấy thông báo chung chung, không rõ vì sao.
+- Sửa cả 3 chỗ trong `features/invoices/index.js` bắt lỗi `ApiError` (`submitForm()` — sửa hóa đơn,
+  `confirmCancel()` — hủy hóa đơn, `submitPayment()` — tạo thanh toán): trước khi fallback về
+  `error.message` chung, thử `firstFieldError(error.errors, 'invoice')` (và `'examination'`/
+  `'status'`/`'amount'` tùy chỗ) để lấy đúng lý do nghiệp vụ cụ thể — cùng cách `describeItemError()`
+  của FE-06 (toa thuốc) đã xử lý cho field `items` không khớp tên input thật.
+  Đây là lỗi có thể tái diễn ở **bất kỳ feature nào khác dùng field lỗi không trùng tên input** —
+  cần soát lại nếu về sau thêm business-rule error mới ở service layer.
+- Không thêm chặn phía client dựa vào `invoice.status` cache sẵn trước khi gọi API (dù có thể ngăn
+  request thừa) — giữ đúng nguyên tắc mục 2.2 của tài liệu này: "Backend là nguồn sự thật cuối cùng
+  cho validation". `openEditModal()`/`askCancel()` đã chặn đúng theo state đang hiển thị; trường hợp
+  state đó bị cũ (ví dụ hóa đơn vừa được thanh toán ở tab khác) nay hiển thị đúng lý do backend từ
+  chối thay vì để lộ ra như một hành vi mơ hồ.
+- `npm run build`, full backend suite **213/213 pass** — không đổi hành vi backend nên không có test
+  mới, chỉ là fix hiển thị lỗi phía frontend.
+
+### 2026-08-20 — Fix dashboard: thẻ "Tạo hóa đơn" không hiện + toast placeholder lỗi thời
+
+- **Phát hiện qua QA thủ công**: thẻ "Tạo hóa đơn" ở "Thao tác nhanh" trên `/dashboard` không hiện
+  ra dù đã đăng nhập bằng tài khoản có quyền `INVOICES.CREATE`. Nguyên nhân: blade dùng
+  `x-show="canCreateInvoice"` nhưng `features/dashboard/index.js` **chưa từng định nghĩa getter
+  này** — Alpine đọc `undefined` (falsy) nên thẻ luôn ẩn, không liên quan gì tới quyền thật. Thêm
+  `get canCreateInvoice()` (đối chiếu `PERMISSIONS.INVOICES.CREATE`, cùng cách các getter
+  `canCreatePatient`/`canCreateAppointment` đã có).
+- Nhân tiện phát hiện thêm: cả 2 thẻ "Tạo lịch hẹn" và "Tạo hóa đơn" đều còn sót
+  `x-on:click="$store.ui.notify('... sẽ được triển khai trong FE-04/FE-08.')"` từ thời các feature
+  này chưa làm xong — nay đã hoàn thiện từ lâu nhưng toast "chưa có" vẫn hiện song song lúc bấm
+  (link vẫn điều hướng đúng vì trình duyệt tự theo `href`, chỉ là hiện thêm 1 toast sai gây rối
+  mắt). Đã xóa cả 2 handler thừa. Đối chiếu lại: `topbar.blade.php` (thông báo) và
+  `sidebar.blade.php` (tooltip mục `ready:false`) vẫn đúng, không sửa, vì đó là tính năng thật sự
+  chưa làm (FE-09/FE-10 và trung tâm thông báo).
+- `npm run build`, `php artisan view:cache`, full backend suite **213/213 pass**.

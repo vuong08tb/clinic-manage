@@ -28,10 +28,12 @@ class PayPalService
                 // Required for the hosted "checkoutnow" redirect flow: without a return_url
                 // PayPal has nowhere to send the browser back to and the "Continue" step on
                 // the approval page fails with a raw METHOD_NOT_SUPPORTED API error instead
-                // of completing.
+                // of completing. PayPal appends its own ?token=&PayerID= query params to
+                // whichever URL we give it, so the frontend return/cancel pages read those
+                // to look the payment back up via GET /api/payments?provider_order_id=.
                 'application_context' => [
-                    'return_url' => config('app.url'),
-                    'cancel_url' => config('app.url'),
+                    'return_url' => config('app.url').'/payments/return',
+                    'cancel_url' => config('app.url').'/payments/cancel',
                     'user_action' => 'PAY_NOW',
                     'shipping_preference' => 'NO_SHIPPING',
                 ],
@@ -40,7 +42,6 @@ class PayPalService
             ->json();
     }
 
-   
     public function captureOrder(string $orderId): array
     {
         return Http::withToken($this->token())

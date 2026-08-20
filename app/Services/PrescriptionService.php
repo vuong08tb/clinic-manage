@@ -8,17 +8,17 @@ use App\Models\Medicine;
 use App\Models\Prescription;
 use App\Models\PrescriptionItem;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
  * Handle prescription creation and stock-affecting business rules.
  */
 class PrescriptionService
 {
-        /**
+    /**
      * Paginate prescriptions with validated filters and eager-loaded clinical context.
      *
      * @param  array<string, mixed>  $filters

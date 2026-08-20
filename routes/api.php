@@ -33,6 +33,7 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::patch('/invoices/{invoice}/status', [InvoiceController::class, 'updateStatus']);
     Route::apiResource('invoices', InvoiceController::class)
         ->only(['index', 'store', 'show', 'update']);
+    Route::get('/payments', [PaymentController::class, 'index']);
     Route::post('/invoices/{invoice}/payments', [PaymentController::class, 'store']);
     Route::post('/payments/{payment}/capture', [PaymentController::class, 'capture']);
     Route::patch('/medicines/{medicine}/stock', [MedicineController::class, 'adjustStock']);
