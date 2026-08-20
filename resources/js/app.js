@@ -7,6 +7,7 @@ import { createUiStore } from "./stores/ui-store";
 import { appointmentIndexPage } from "./features/appointments";
 import { examinationIndexPage } from "./features/examinations";
 import { prescriptionIndexPage } from "./features/prescriptions";
+import { medicineIndexPage } from "./features/medicines";
 
 window.Alpine = Alpine;
 
@@ -20,6 +21,7 @@ document.addEventListener("alpine:init", () => {
     Alpine.data("appointmentIndexPage", appointmentIndexPage);
     Alpine.data("examinationIndexPage", examinationIndexPage);
     Alpine.data("prescriptionIndexPage", prescriptionIndexPage);
+    Alpine.data("medicineIndexPage", medicineIndexPage);
 });
 
 Alpine.start();

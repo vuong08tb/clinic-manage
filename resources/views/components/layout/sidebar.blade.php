@@ -28,7 +28,8 @@ request()->routeIs('dashboard'), 'permissions' => [], 'ready' => true],
 [
 'label' => 'Dược',
 'items' => [
-['label' => 'Kho thuốc', 'icon' => 'medicine', 'permissions' => ['MEDICINES.FINDALL'], 'ready' => false],
+['label' => 'Kho thuốc', 'icon' => 'medicine', 'href' => route('web.medicines.index'),
+'active' => request()->routeIs('web.medicines.*'), 'permissions' => ['MEDICINES.FINDALL'], 'ready' => true],
 ],
 ],
 [

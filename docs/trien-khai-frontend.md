@@ -311,12 +311,12 @@ Mục tiêu: dashboard role-aware, không gọi endpoint người dùng không c
 
 ### FE-07 — Kho thuốc
 
-- [ ] Danh sách/search/filter tồn kho/pagination.
-- [ ] Badge tồn kho và trạng thái active.
-- [ ] Modal thêm/sửa thuốc.
-- [ ] Modal điều chỉnh tồn kho có lý do/số lượng rõ ràng.
-- [ ] Confirm trước thao tác xóa.
-- [ ] Action theo `MEDICINES.*`.
+- [x] Danh sách/search/filter tồn kho/pagination.
+- [x] Badge tồn kho và trạng thái active.
+- [x] Modal thêm/sửa thuốc.
+- [x] Modal điều chỉnh tồn kho có lý do/số lượng rõ ràng.
+- [x] Confirm trước thao tác xóa.
+- [x] Action theo `MEDICINES.*`.
 
 ### FE-08 — Hóa đơn và thanh toán
 
@@ -605,3 +605,41 @@ Kiểm chứng:
 - `npm run build`, `php artisan view:cache` sạch. Full backend suite: 198/207 pass; 9 fail vẫn là
   `AppointmentTest` do fixture ngày cố định `2026-08-15` nay đã ở quá khứ so với ngày chạy test
   (2026-08-20) — lỗi có sẵn từ trước (đã ghi nhận từ FE-03), không phải regression của FE-06.
+
+### 2026-08-20 — FE-07 (Kho thuốc)
+
+- Backend đã đầy đủ CRUD + `adjustStock` từ trước (không có API gap như FE-06), nên FE-07 chỉ là
+  frontend thuần: trang `/medicines` có search + filter `stock_status` (`in_stock`/`out_of_stock`,
+  đúng theo `ListMedicinesRequest`) + phân trang, bảng có badge tồn kho và badge trạng thái, modal
+  thêm/sửa, modal điều chỉnh tồn kho riêng, confirm popup khi xóa (soft delete). Action theo
+  `MEDICINES.*`.
+- **Quyết định quan trọng: tách "sửa thuốc" khỏi "điều chỉnh tồn kho"**. API cho phép sửa `stock`
+  trực tiếp qua `PATCH /medicines/{id}` (như mọi field khác) lẫn qua endpoint riêng
+  `PATCH /medicines/{id}/stock` (nhận `quantity` dạng delta ± và `note`). Nếu form "Sửa thuốc" cho
+  sửa `stock` trực tiếp thì sẽ tồn tại 2 đường thay đổi tồn kho xung đột nhau và không ai bắt buộc
+  phải nhập lý do. Đã chốt: field `stock` **chỉ xuất hiện trong form khi tạo mới** (tồn kho ban
+  đầu, bắt buộc theo `StoreMedicineRequest`); sau khi tạo, tồn kho là read-only ở form sửa và chỉ
+  đổi được qua modal "Điều chỉnh tồn kho" (chọn Nhập thêm/Xuất bớt, nhập số lượng dương, xem trước
+  tồn kho sau điều chỉnh, có ô lý do). `medicine-form.js` tách rõ `createPayload()` (có `stock`)
+  và `updatePayload()` (không có `stock`) để không thể vô tình gửi nhầm.
+- **Lưu ý về field `note`**: `AdjustMedicineStockRequest` validate `note` nhưng
+  `MedicineService::adjustStock()` không lưu nó vào đâu cả — bảng `medicines` không có cột log,
+  cũng không có bảng lịch sử điều chỉnh tồn kho. UI vẫn thu thập và gửi `note` (đúng yêu cầu
+  checklist "có lý do rõ ràng" và đúng field API chấp nhận), nhưng cần biết trước: lý do nhập vào
+  hiện **không được lưu lại** ở đâu để tra cứu sau này. Nếu cần audit trail thật, phải bổ sung bảng
+  `medicine_stock_adjustments` (hoặc tương tự) ở backend — ngoài phạm vi FE-07.
+- Bổ sung `active`/`inactive` vào `STATUS_LABELS`/`STATUS_CLASSES` trong `core/formatters.js` —
+  trước đó 2 khóa này được nhắc trong tài liệu (mục 3.2) nhưng chưa feature nào dùng đến. Thêm mới
+  `stockLabel()`/`stockClasses()` (ngưỡng `LOW_STOCK_THRESHOLD = 10`, chỉ ảnh hưởng badge hiển thị,
+  không phải rule nghiệp vụ backend) vì tồn kho là dữ liệu số, không khớp được với cặp
+  `statusLabel`/`statusClasses` vốn thiết kế cho tập nhãn cố định.
+- Thêm icon `swap` (mũi tên lên/xuống) cho nút "Điều chỉnh tồn kho" trong cột "Thao tác" — phân
+  biệt với "Sửa" (`edit`).
+- `core/permissions.js`: bổ sung `CREATE/UPDATE/DELETE/ADJUSTSTOCK` vào `PERMISSIONS.MEDICINES`
+  (trước đó FE-06 mới thêm `FINDALL`/`FINDONE` cho combobox tìm thuốc trong toa).
+- Self-test: thêm `test_medicine_index_page_is_available` và `/medicines` (3 modal id: form, detail,
+  stock) vào `test_feature_pages_render_modal_shells` trong `FrontendPageTest.php` — 10 pass.
+  `MedicineTest.php` (có sẵn, không viết mới) đã đủ RBAC theo role được phép/bị từ chối cho
+  medicines, kể cả `DOCTOR` chỉ đọc và `RECEPTIONIST`/`CASHIER` không có quyền truy cập.
+- `npm run build`, `php artisan view:cache` sạch. Full backend suite: 199/208 pass; 9 fail vẫn là
+  `AppointmentTest` do fixture ngày cố định, có sẵn từ trước, không phải regression của FE-07.
