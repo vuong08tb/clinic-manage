@@ -131,26 +131,49 @@ docker compose up -d --build                        # build lại sau khi đổi
 
 ---
 
-## 9. Timezone (UTC+7)
+## 9. Timezone (UTC)
 
-Toàn bộ stack chạy ở `Asia/Ho_Chi_Minh`. Ba tầng phải khớp nhau, thiếu một tầng là lệch giờ:
+**Toàn bộ tầng ứng dụng và dữ liệu chạy ở `UTC`.** Lưu mốc tuyệt đối ở UTC, để client tự quy
+đổi sang giờ địa phương khi hiển thị — xem [database.md mục 11](database.md#11-timezone-luôn-dùng-timestamptz).
 
 | Tầng | Cấu hình | Ở đâu |
 |---|---|---|
-| OS container `app` | `ENV TZ=Asia/Ho_Chi_Minh` + `tzdata` + symlink `/etc/localtime` | `Dockerfile` |
-| PHP | `date.timezone` trong `conf.d/timezone.ini` | `Dockerfile` |
-| Laravel | `APP_TIMEZONE=Asia/Ho_Chi_Minh` → `config/app.php` | `.env` |
-| Postgres server | `-c timezone=Asia/Ho_Chi_Minh -c log_timezone=...` | `docker-compose.yml` |
-| Postgres session | `DB_TIMEZONE` → `config/database.php` (`set time zone`) | `.env` |
+| Laravel | `APP_TIMEZONE=UTC` → `config/app.php` | `.env` |
+| Postgres server | `-c timezone=UTC -c log_timezone=UTC` | `docker-compose.yml` |
+| Postgres session | `DB_TIMEZONE=UTC` → `config/database.php` (`set time zone`) | `.env` |
+| OS container `app` | `TZ` — **không ảnh hưởng ứng dụng**, xem ghi chú dưới | `Dockerfile`, `docker-compose.yml` |
 
-> Đổi `TZ` trong Dockerfile phải `docker compose up -d --build`; đổi biến `TZ` trong compose chỉ cần recreate container.
+### `APP_TIMEZONE` là tầng quyết định
+
+Laravel gọi `date_default_timezone_set(config('app.timezone'))` lúc boot, nên **mọi tiến trình
+PHP của ứng dụng chạy ở `APP_TIMEZONE` bất kể `date.timezone` trong php.ini hay `TZ` của OS**.
+
+Hệ quả thực tế: `TZ=Asia/Ho_Chi_Minh` còn sót trong `Dockerfile` và `docker-compose.yml` khiến
+lệnh `date` trong container trả `+07`, nhưng `now()` của Laravel vẫn là UTC. Đây là **residue vô
+hại** — nó chỉ ảnh hưởng shell, cron và log do OS ghi, không ảnh hưởng dữ liệu.
+
+> Muốn dọn cho sạch thì đổi `TZ` thành `UTC` ở cả hai file rồi `docker compose up -d --build`.
+> Không bắt buộc.
 
 ### Kiểm tra nhanh
 
 ```bash
-docker compose exec app date                    # → +07
-docker compose exec app php -r 'echo date("c");'
+docker compose exec app php artisan tinker --execute="echo config('app.timezone').' | '.now();"
 docker compose exec db psql -U clinic -d clinic_app -c "SHOW timezone;"
 ```
 
-Cả ba phải trả về `+07` / `Asia/Ho_Chi_Minh`.
+Cả hai phải trả về `UTC`. Đây là hai tầng duy nhất cần khớp.
+
+```bash
+docker compose exec app date        # có thể ra +07 — không sao, xem ghi chú trên
+```
+
+### Bẫy: "hôm nay" theo UTC không phải "hôm nay" theo giờ Việt Nam
+
+Vì stack chạy UTC, `today()` và `whereDate(...)` cắt ngày theo mốc **00:00 UTC = 07:00 giờ VN**.
+Một lịch hẹn 06:00 sáng giờ VN được lưu là `23:00 UTC hôm trước`, nên query "lịch hôm nay" sẽ
+**không đếm nó vào hôm nay**.
+
+Chấp nhận được cho phạm vi hiện tại (toàn hệ thống nhất quán một múi giờ). Khi nào cần cắt ngày
+theo giờ Việt Nam thì phải quy đổi tường minh ở tầng query, đừng đổi `APP_TIMEZONE` — đổi biến
+đó ảnh hưởng mọi mốc thời gian trong hệ thống.
