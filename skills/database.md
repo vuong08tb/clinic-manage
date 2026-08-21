@@ -216,22 +216,29 @@ Method, Controller, Service, Class, Constructor
 
 ## 11. Timezone: luôn dùng `timestamptz`
 
-DB chạy ở `Asia/Ho_Chi_Minh` (xem [skills/docker.md mục 9](./docker.md#9-timezone-utc7)). Quy ước cột thời gian:
+DB chạy ở `UTC` (xem [skills/docker.md mục 9](./docker.md#9-timezone-utc)). Quy ước cột thời gian:
 
 | Loại dữ liệu | Kiểu cột | Blueprint |
 |---|---|---|
 | Mốc thời gian thật (`scheduled_at`, `examined_at`, `issued_at`, `paid_at`, `created_at`, `deleted_at`, ...) | `timestamptz` | `$table->timestampTz(...)`, `$table->timestampsTz()`, `$table->softDeletesTz()` |
 | Ngày lịch thuần, không gắn giờ (`date_of_birth`) | `date` | `$table->date(...)` |
 
-**Tại sao `timestamptz`:** `timestamp` (không timezone) lưu wall-clock trần — cùng một giá trị đọc ra sẽ mang nghĩa khác nhau tùy timezone của session, và không có cách nào biết nó được ghi ở múi nào. `timestamptz` lưu mốc tuyệt đối, Postgres tự trả về theo timezone session (+07).
+**Tại sao `timestamptz`:** `timestamp` (không timezone) lưu wall-clock trần — cùng một giá trị đọc ra sẽ mang nghĩa khác nhau tùy timezone của session, và không có cách nào biết nó được ghi ở múi nào. `timestamptz` lưu mốc tuyệt đối, Postgres tự trả về theo timezone session.
 
-Migration `2026_08_19_000000_convert_timestamps_to_timestamptz` đã quét `information_schema` và đổi toàn bộ cột `timestamp without time zone` sang `timestamptz`, diễn giải dữ liệu cũ là UTC (đúng với thời điểm app còn chạy `APP_TIMEZONE=UTC`).
+> Session hiện đang là `UTC`, nhưng giá trị lưu là mốc tuyệt đối nên **đổi timezone session sau này không làm sai dữ liệu cũ** — đó chính là lý do chọn `timestamptz` thay vì `timestamp`.
+
+Migration `2026_08_19_000000_convert_timestamps_to_timestamptz` đã quét `information_schema` và đổi toàn bộ cột `timestamp without time zone` sang `timestamptz`, diễn giải dữ liệu cũ là UTC.
 
 > Migration này chạy **sau cùng** nên `migrate:fresh` vẫn ra schema đúng dù các migration cũ còn khai báo `timestamps()`. Nhưng **migration mới phải dùng `timestampTz`/`timestampsTz`** — nếu không, cột sẽ lọt lưới.
 
 ### Checklist khi thêm cột thời gian
 
 - [ ] Dùng `timestampTz`/`timestampsTz`/`softDeletesTz`, không dùng `timestamp`/`timestamps`.
-- [ ] Cast `'datetime'` trong Model → Carbon tự về `Asia/Ho_Chi_Minh`.
+- [ ] Cast `'datetime'` trong Model → Carbon ở `UTC` (theo `APP_TIMEZONE`).
 - [ ] API Resource trả `->toISOString()` (UTC, có `Z`) — frontend tự render sang giờ VN.
-- [ ] Filter theo ngày dùng `whereDate` + `today()`; cả hai đã ở +07.
+- [ ] Filter theo ngày dùng `whereDate` + `today()`; cả hai đã ở `UTC`.
+
+> **Bẫy cần biết:** `today()` cắt ngày theo mốc **00:00 UTC = 07:00 giờ VN**. Một lịch hẹn 06:00
+> sáng giờ VN được lưu là `23:00 UTC hôm trước`, nên `whereDate('scheduled_at', today())` **không
+> đếm nó vào hôm nay**. Nhất quán trong toàn hệ thống nên chấp nhận được; khi cần cắt ngày theo
+> giờ VN thì quy đổi tường minh ở tầng query, **đừng** đổi `APP_TIMEZONE`.
