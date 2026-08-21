@@ -1,0 +1,1176 @@
+{
+    "info": {
+        "name": "Clinic API",
+        "description": "Bộ sưu tập API phòng khám (Laravel + Sanctum + RBAC + PayPal Sandbox).\n\n## Cách chạy\n\n1. Đặt biến `base_url` (mặc định `http://localhost:8000`).\n2. Chạy thư mục **00 — Auth** trước để lấy token cho từng vai trò.\n3. Chạy thư mục **01 — Luồng chính** theo đúng thứ tự: mỗi request tự lưu id cho request kế tiếp, không cần sửa tay.\n4. Thư mục **04 — Case lỗi** kiểm tra 401 / 403 / 404 / 422.\n\nHoặc bấm **Run collection** để chạy toàn bộ theo thứ tự.\n\n## Lưu ý về PayPal\n\nRequest `Tạo thanh toán` gọi PayPal Sandbox thật và trả về `approval_url`. Muốn `Capture` thành công thì phải mở link đó trên trình duyệt và duyệt bằng tài khoản sandbox buyer trước — đây là bước thủ công do PayPal yêu cầu, không tự động hoá được.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{token}}",
+                "type": "string"
+            }
+        ]
+    },
+    "variable": [
+        { "key": "base_url", "value": "http://localhost:8000" },
+        { "key": "token", "value": "" },
+        { "key": "token_receptionist", "value": "" },
+        { "key": "token_doctor", "value": "" },
+        { "key": "token_pharmacist", "value": "" },
+        { "key": "token_cashier", "value": "" },
+        { "key": "patient_id", "value": "" },
+        { "key": "doctor_id", "value": "" },
+        { "key": "appointment_id", "value": "" },
+        { "key": "examination_id", "value": "" },
+        { "key": "medicine_id", "value": "" },
+        { "key": "prescription_id", "value": "" },
+        { "key": "item_id", "value": "" },
+        { "key": "invoice_id", "value": "" },
+        { "key": "invoice_total", "value": "" },
+        { "key": "payment_id", "value": "" },
+        { "key": "specialty_id", "value": "" }
+    ],
+    "item": [
+        {
+            "name": "00 — Auth",
+            "description": "Đăng nhập từng vai trò và lưu token vào biến riêng. Các token này được thư mục 04 dùng để kiểm tra 403.",
+            "item": [
+                {
+                    "name": "Đăng nhập ADMIN",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.collectionVariables.set('token', res.data.token);",
+                                    "",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Có token', () => pm.expect(res.data.token).to.be.a('string').and.not.empty);",
+                                    "pm.test('Vai trò ADMIN', () => pm.expect(res.data.user.role.name).to.eql('ADMIN'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": { "type": "noauth" },
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"admin@clinic.test\",\n    \"password\": \"Admin@123\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/login",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "login"]
+                        }
+                    }
+                },
+                {
+                    "name": "Đăng nhập RECEPTIONIST",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.collectionVariables.set('token_receptionist', res.data.token);",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": { "type": "noauth" },
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"receptionist@clinic.test\",\n    \"password\": \"Receptionist@123\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/login",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "login"]
+                        }
+                    }
+                },
+                {
+                    "name": "Đăng nhập DOCTOR",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.collectionVariables.set('token_doctor', res.data.token);",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": { "type": "noauth" },
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"doctor@clinic.test\",\n    \"password\": \"Doctor@123\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/login",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "login"]
+                        }
+                    }
+                },
+                {
+                    "name": "Đăng nhập PHARMACIST",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.collectionVariables.set('token_pharmacist', res.data.token);",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": { "type": "noauth" },
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"pharmacist@clinic.test\",\n    \"password\": \"Pharmacist@123\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/login",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "login"]
+                        }
+                    }
+                },
+                {
+                    "name": "Đăng nhập CASHIER",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.collectionVariables.set('token_cashier', res.data.token);",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": { "type": "noauth" },
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"cashier@clinic.test\",\n    \"password\": \"Cashier@123\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/login",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "login"]
+                        }
+                    }
+                },
+                {
+                    "name": "Thông tin tài khoản (/me)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Trả về danh sách quyền', () => pm.expect(res.data.permissions).to.be.an('array'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/me",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "me"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "01 — Luồng chính",
+            "description": "Chạy tuần tự từ trên xuống. Mỗi request tự lưu id vào biến cho request sau, không cần sửa tay.\n\nBệnh nhân → Lịch hẹn → Phiếu khám → Đơn thuốc (trừ kho) → Hoá đơn → Thanh toán → Capture.",
+            "item": [
+                {
+                    "name": "1. Tạo bệnh nhân",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.collectionVariables.set('patient_id', res.data.id);",
+                                    "",
+                                    "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                                    "pm.test('Mã bệnh nhân sinh tự động', () => pm.expect(res.data.code).to.match(/^BN-/));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"full_name\": \"Nguyễn Văn Postman\",\n    \"gender\": \"male\",\n    \"date_of_birth\": \"1990-05-20\",\n    \"phone\": \"0900{{$randomInt}}\",\n    \"email\": \"postman{{$timestamp}}@example.com\",\n    \"address\": \"12 Nguyễn Trãi, Hà Nội\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/patients",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "patients"]
+                        }
+                    }
+                },
+                {
+                    "name": "2. Lấy một bác sĩ",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Có ít nhất một bác sĩ', () => pm.expect(res.data.length).to.be.above(0));",
+                                    "",
+                                    "pm.collectionVariables.set('doctor_id', res.data[0].id);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/doctors?per_page=1",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "doctors"],
+                            "query": [{ "key": "per_page", "value": "1" }]
+                        }
+                    }
+                },
+                {
+                    "name": "3. Tạo lịch hẹn",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "// scheduled_at phải ở tương lai (rule after:now) và tránh trùng khung 30 phút",
+                                    "// của bác sĩ, nên đẩy ra vài ngày cộng thêm một lượng phút ngẫu nhiên.",
+                                    "const offsetDays = 3 + Math.floor(Math.random() * 20);",
+                                    "const offsetMinutes = Math.floor(Math.random() * 600);",
+                                    "const at = new Date(Date.now() + offsetDays * 86400000 + offsetMinutes * 60000);",
+                                    "",
+                                    "pm.collectionVariables.set('scheduled_at', at.toISOString().slice(0, 19).replace('T', ' '));"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.collectionVariables.set('appointment_id', res.data.id);",
+                                    "",
+                                    "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                                    "pm.test('Trạng thái mặc định là scheduled', () => pm.expect(res.data.status).to.eql('scheduled'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"patient_id\": {{patient_id}},\n    \"doctor_id\": {{doctor_id}},\n    \"scheduled_at\": \"{{scheduled_at}}\",\n    \"reason\": \"Khám tổng quát\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/appointments",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "appointments"]
+                        }
+                    }
+                },
+                {
+                    "name": "4. Xác nhận lịch hẹn",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Chuyển sang confirmed', () => pm.expect(res.data.status).to.eql('confirmed'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"status\": \"confirmed\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/appointments/{{appointment_id}}/status",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "appointments", "{{appointment_id}}", "status"]
+                        }
+                    }
+                },
+                {
+                    "name": "5. Tạo phiếu khám",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.collectionVariables.set('examination_id', res.data.id);",
+                                    "",
+                                    "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                                    "pm.test('Gắn đúng lịch hẹn', () => pm.expect(res.data.appointment_id).to.eql(Number(pm.collectionVariables.get('appointment_id'))));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"appointment_id\": {{appointment_id}},\n    \"diagnosis\": \"Viêm họng cấp\",\n    \"notes\": \"Nghỉ ngơi, uống nhiều nước\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/examinations",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "examinations"]
+                        }
+                    }
+                },
+                {
+                    "name": "6. Lấy một thuốc còn hàng",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Có thuốc còn hàng', () => pm.expect(res.data.length).to.be.above(0));",
+                                    "",
+                                    "pm.collectionVariables.set('medicine_id', res.data[0].id);",
+                                    "pm.collectionVariables.set('medicine_stock_before', res.data[0].stock);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/medicines?stock_status=in_stock&per_page=1",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "medicines"],
+                            "query": [
+                                { "key": "stock_status", "value": "in_stock" },
+                                { "key": "per_page", "value": "1" }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "7. Tạo đơn thuốc (trừ kho)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.collectionVariables.set('prescription_id', res.data.id);",
+                                    "",
+                                    "if (res.data.items && res.data.items.length) {",
+                                    "    pm.collectionVariables.set('item_id', res.data.items[0].id);",
+                                    "}",
+                                    "",
+                                    "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                                    "pm.test('Có một dòng thuốc', () => pm.expect(res.data.items.length).to.eql(1));",
+                                    "pm.test('Số lượng kê đúng', () => pm.expect(res.data.items[0].quantity).to.eql(2));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"examination_id\": {{examination_id}},\n    \"notes\": \"Uống sau ăn\",\n    \"items\": [\n        {\n            \"medicine_id\": {{medicine_id}},\n            \"quantity\": 2,\n            \"dosage\": \"1 viên/lần, ngày 2 lần\",\n            \"usage_instruction\": \"Uống sau bữa ăn\"\n        }\n    ]\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/prescriptions",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "prescriptions"]
+                        }
+                    }
+                },
+                {
+                    "name": "8. Kiểm tra tồn kho đã bị trừ",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "const before = Number(pm.collectionVariables.get('medicine_stock_before'));",
+                                    "",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Tồn kho giảm đúng 2 đơn vị', () => {",
+                                    "    pm.expect(before - res.data.stock).to.eql(2);",
+                                    "});",
+                                    "",
+                                    "// Bước tiếp theo (điều chỉnh kho ở thư mục 02) so sánh với mốc này.",
+                                    "pm.collectionVariables.set('medicine_stock_before', res.data.stock);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/medicines/{{medicine_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "medicines", "{{medicine_id}}"]
+                        },
+                        "description": "Đọc lại thuốc để xác nhận kho đã bị trừ. PrescriptionItemResource cố ý không trả `stock` — đơn thuốc không phải nơi công bố tồn kho hiện tại."
+                    }
+                },
+                {
+                    "name": "9. Tạo hoá đơn",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.collectionVariables.set('invoice_id', res.data.id);",
+                                    "pm.collectionVariables.set('invoice_total', res.data.total);",
+                                    "",
+                                    "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                                    "pm.test('Mã hoá đơn sinh tự động', () => pm.expect(res.data.invoice_code).to.match(/^INV-/));",
+                                    "pm.test('total = subtotal - discount', () => {",
+                                    "    const expected = Number(res.data.subtotal) - Number(res.data.discount);",
+                                    "    pm.expect(Number(res.data.total)).to.eql(expected);",
+                                    "});",
+                                    "pm.test('Trạng thái ban đầu là unpaid', () => pm.expect(res.data.status).to.eql('unpaid'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"examination_id\": {{examination_id}},\n    \"discount\": 0\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/invoices",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "invoices"]
+                        }
+                    }
+                },
+                {
+                    "name": "10. Tạo thanh toán PayPal",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.collectionVariables.set('payment_id', res.data.id);",
+                                    "",
+                                    "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                                    "pm.test('Trạng thái pending', () => pm.expect(res.data.status).to.eql('pending'));",
+                                    "pm.test('Có provider_order_id', () => pm.expect(res.data.provider_order_id).to.be.a('string'));",
+                                    "",
+                                    "console.log('Mở link này trên trình duyệt và duyệt bằng tài khoản sandbox buyer trước khi chạy request Capture:');",
+                                    "console.log(res.data.approval_url);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"amount\": {{invoice_total}},\n    \"method\": \"paypal\",\n    \"note\": \"Thu tại quầy\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/invoices/{{invoice_id}}/payments",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "invoices", "{{invoice_id}}", "payments"]
+                        },
+                        "description": "Gọi PayPal Sandbox thật để mở Order. Response trả `approval_url` — link này được in ra Postman Console (View → Show Postman Console)."
+                    }
+                },
+                {
+                    "name": "11. Capture thanh toán",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "",
+                                    "if (res.data.status === 'completed') {",
+                                    "    pm.test('Đã thu tiền, có provider_capture_id', () => {",
+                                    "        pm.expect(res.data.provider_capture_id).to.be.a('string');",
+                                    "    });",
+                                    "} else {",
+                                    "    console.log('Capture chưa thành công — Order chưa được duyệt trên trình duyệt.');",
+                                    "    console.log('Chạy lại request 10, mở approval_url, duyệt xong rồi chạy lại request 11.');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/payments/{{payment_id}}/capture",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "payments", "{{payment_id}}", "capture"]
+                        },
+                        "description": "Chỉ thành công nếu Order đã được duyệt trên trang PayPal. Chưa duyệt thì PayPal trả trạng thái khác COMPLETED và hệ thống đánh dấu payment là `failed` — đúng thiết kế."
+                    }
+                },
+                {
+                    "name": "12. Xem hoá đơn sau thanh toán",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/invoices/{{invoice_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "invoices", "{{invoice_id}}"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "02 — Danh mục",
+            "item": [
+                {
+                    "name": "Tạo chuyên khoa",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.collectionVariables.set('specialty_id', res.data.id);",
+                                    "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Chuyên khoa Postman {{$timestamp}}\",\n    \"description\": \"Tạo từ Postman collection\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/specialties",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "specialties"]
+                        }
+                    }
+                },
+                {
+                    "name": "Sửa chuyên khoa",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Chuyên khoa Postman sửa {{$timestamp}}\",\n    \"description\": \"Đã cập nhật\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/specialties/{{specialty_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "specialties", "{{specialty_id}}"]
+                        }
+                    }
+                },
+                {
+                    "name": "Xoá chuyên khoa",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "DELETE",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/specialties/{{specialty_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "specialties", "{{specialty_id}}"]
+                        }
+                    }
+                },
+                {
+                    "name": "Điều chỉnh tồn kho",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Tồn kho tăng', () => {",
+                                    "    const before = Number(pm.collectionVariables.get('medicine_stock_before'));",
+                                    "    pm.expect(pm.response.json().data.stock).to.be.at.least(before);",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{ "key": "token", "value": "{{token_pharmacist}}", "type": "string" }]
+                        },
+                        "method": "PATCH",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"quantity\": 20,\n    \"note\": \"Nhập hàng từ Postman\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/medicines/{{medicine_id}}/stock",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "medicines", "{{medicine_id}}", "stock"]
+                        },
+                        "description": "Dùng token PHARMACIST — vai trò duy nhất ngoài ADMIN có quyền MEDICINES.ADJUSTSTOCK."
+                    }
+                },
+                {
+                    "name": "Danh sách vai trò",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/roles",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "roles"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "03 — Truy vấn & thống kê",
+            "item": [
+                {
+                    "name": "Thống kê tổng quan (chỉ ADMIN)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Đủ 4 chỉ số', () => {",
+                                    "    pm.expect(res.data).to.have.all.keys(",
+                                    "        'total_patients', 'appointments_today', 'revenue_this_month', 'low_stock_medicines',",
+                                    "    );",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/stats",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "stats"]
+                        }
+                    }
+                },
+                {
+                    "name": "Lịch hẹn hôm nay",
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/appointments?date=2026-08-21&per_page=15",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "appointments"],
+                            "query": [
+                                { "key": "date", "value": "2026-08-21" },
+                                { "key": "per_page", "value": "15" }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Hoá đơn chưa thanh toán",
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/invoices?status=unpaid&per_page=15",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "invoices"],
+                            "query": [
+                                { "key": "status", "value": "unpaid" },
+                                { "key": "per_page", "value": "15" }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Thanh toán theo hoá đơn",
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/payments?invoice_id={{invoice_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "payments"],
+                            "query": [{ "key": "invoice_id", "value": "{{invoice_id}}" }]
+                        }
+                    }
+                },
+                {
+                    "name": "Tìm bệnh nhân theo từ khoá",
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/patients?q=Nguyễn&per_page=10",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "patients"],
+                            "query": [
+                                { "key": "q", "value": "Nguyễn" },
+                                { "key": "per_page", "value": "10" }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "04 — Case lỗi",
+            "description": "Kiểm tra ma trận HTTP status: 401 chưa xác thực, 403 thiếu quyền, 404 không tồn tại, 422 sai dữ liệu.",
+            "item": [
+                {
+                    "name": "401 — Không gửi token",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                                    "pm.test('Envelope có success=false', () => pm.expect(pm.response.json().success).to.eql(false));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": { "type": "noauth" },
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/patients",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "patients"]
+                        }
+                    }
+                },
+                {
+                    "name": "403 — RECEPTIONIST tạo hoá đơn",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                                    "pm.test('Nêu rõ quyền còn thiếu', () => {",
+                                    "    pm.expect(pm.response.json().message).to.eql('Missing permission: INVOICES.CREATE');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{ "key": "token", "value": "{{token_receptionist}}", "type": "string" }]
+                        },
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"examination_id\": {{examination_id}},\n    \"discount\": 0\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/invoices",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "invoices"]
+                        }
+                    }
+                },
+                {
+                    "name": "403 — DOCTOR capture thanh toán",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                                    "pm.test('Nêu rõ quyền còn thiếu', () => {",
+                                    "    pm.expect(pm.response.json().message).to.eql('Missing permission: PAYMENTS.CAPTURE');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{ "key": "token", "value": "{{token_doctor}}", "type": "string" }]
+                        },
+                        "method": "POST",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/payments/{{payment_id}}/capture",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "payments", "{{payment_id}}", "capture"]
+                        }
+                    }
+                },
+                {
+                    "name": "403 — CASHIER xem thống kê",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                                    "pm.test('Nêu rõ quyền còn thiếu', () => {",
+                                    "    pm.expect(pm.response.json().message).to.eql('Missing permission: STATS.SHOW');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{ "key": "token", "value": "{{token_cashier}}", "type": "string" }]
+                        },
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/stats",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "stats"]
+                        }
+                    }
+                },
+                {
+                    "name": "404 — Bệnh nhân không tồn tại",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                                    "pm.test('Không lộ chi tiết model', () => {",
+                                    "    pm.expect(pm.response.json().message).to.not.include('App\\\\Models');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/patients/999999",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "patients", "999999"]
+                        }
+                    }
+                },
+                {
+                    "name": "422 — Tạo bệnh nhân thiếu trường bắt buộc",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.test('422 Unprocessable', () => pm.response.to.have.status(422));",
+                                    "pm.test('Có errors theo từng field', () => {",
+                                    "    pm.expect(res.errors).to.have.property('full_name');",
+                                    "    pm.expect(res.errors).to.have.property('gender');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"phone\": \"0900000000\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/patients",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "patients"]
+                        }
+                    }
+                },
+                {
+                    "name": "422 — Thanh toán vượt số dư còn lại",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.test('422 Unprocessable', () => pm.response.to.have.status(422));",
+                                    "pm.test('Báo lỗi ở field amount', () => pm.expect(res.errors).to.have.property('amount'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"amount\": 999999999,\n    \"method\": \"paypal\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/invoices/{{invoice_id}}/payments",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "invoices", "{{invoice_id}}", "payments"]
+                        },
+                        "description": "Số tiền vượt phần còn phải trả — bị chặn ở tầng nghiệp vụ trước khi gọi PayPal."
+                    }
+                },
+                {
+                    "name": "422 — Chuyển trạng thái lịch hẹn không hợp lệ",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.test('422 Unprocessable', () => pm.response.to.have.status(422));",
+                                    "pm.test('Báo lỗi ở field status', () => pm.expect(res.errors).to.have.property('status'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"status\": \"scheduled\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/appointments/{{appointment_id}}/status",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "appointments", "{{appointment_id}}", "status"]
+                        },
+                        "description": "Lịch hẹn đã completed (do tạo phiếu khám) nên không quay lại scheduled được."
+                    }
+                }
+            ]
+        }
+    ]
+}

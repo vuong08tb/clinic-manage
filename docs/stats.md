@@ -1,6 +1,7 @@
 # [T4.2] API Stats tổng quan — Kế hoạch triển khai
 
-> **Trạng thái:** Chờ review. Chưa viết code cho tới khi được duyệt.
+> **Trạng thái:** Đã triển khai xong. `pint` sạch, `php artisan test` **248/248**
+> (10 test cho stats). Số liệu đã đối chiếu khớp với SQL thô trên dữ liệu seed.
 > **Tuân thủ:** `skills/backend.md` (mục 1 phân lớp, mục 9 Stats, mục 12 comment),
 > `skills/database.md` (mục 8 aggregate, mục 11 timestamptz).
 
