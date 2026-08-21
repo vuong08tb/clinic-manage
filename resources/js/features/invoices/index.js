@@ -70,7 +70,7 @@ export function invoiceIndexPage() {
         paymentsLoading: false,
         paymentsError: "",
 
-        paymentForm: { method: "paypal", amount: "" },
+        paymentForm: { method: "paypal", amount: "", note: "" },
         paymentSubmitting: false,
         paymentMessage: "",
 
@@ -215,7 +215,8 @@ export function invoiceIndexPage() {
                 this.invoices = [];
 
                 if (error instanceof ApiError && error.status === 403) {
-                    this.listError = "Bạn không có quyền xem danh sách hóa đơn.";
+                    this.listError =
+                        "Bạn không có quyền xem danh sách hóa đơn.";
                 } else {
                     this.listError =
                         error.message ?? "Không thể tải danh sách hóa đơn.";
@@ -415,7 +416,11 @@ export function invoiceIndexPage() {
 
                 await this.loadList();
 
-                if (editing && this.detailOpen && this.detail?.id === this.editingId) {
+                if (
+                    editing &&
+                    this.detailOpen &&
+                    this.detail?.id === this.editingId
+                ) {
                     await this.reloadDetail();
                 }
             } catch (error) {
@@ -425,8 +430,8 @@ export function invoiceIndexPage() {
                         error.status === 403
                             ? "Bạn không có quyền thực hiện thao tác này."
                             : (firstFieldError(error.errors, "invoice") ??
-                                firstFieldError(error.errors, "examination") ??
-                                error.message);
+                              firstFieldError(error.errors, "examination") ??
+                              error.message);
                 } else {
                     this.formMessage =
                         "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.";
@@ -463,7 +468,7 @@ export function invoiceIndexPage() {
             this.detailLoading = true;
             this.detail = invoice;
             this.payments = [];
-            this.paymentForm = { method: "paypal", amount: "" };
+            this.paymentForm = { method: "paypal", amount: "", note: "" };
             this.paymentMessage = "";
 
             try {
@@ -476,7 +481,8 @@ export function invoiceIndexPage() {
                 } else if (error instanceof ApiError && error.status === 403) {
                     this.detailError = "Bạn không có quyền xem hóa đơn này.";
                 } else {
-                    this.detailError = error.message ?? "Không thể tải hóa đơn.";
+                    this.detailError =
+                        error.message ?? "Không thể tải hóa đơn.";
                 }
             } finally {
                 this.detailLoading = false;
@@ -516,7 +522,10 @@ export function invoiceIndexPage() {
         },
 
         async loadPayments() {
-            if (!this.detail?.id || !this.$store.auth.can(PERMISSIONS.PAYMENTS.FINDALL)) {
+            if (
+                !this.detail?.id ||
+                !this.$store.auth.can(PERMISSIONS.PAYMENTS.FINDALL)
+            ) {
                 return;
             }
 
@@ -524,11 +533,16 @@ export function invoiceIndexPage() {
             this.paymentsError = "";
 
             try {
-                const response = await getPayments({ invoice_id: this.detail.id });
+                const response = await getPayments({
+                    invoice_id: this.detail.id,
+                });
 
                 this.payments = response.data ?? [];
 
-                if (this.paymentForm.amount === "" && this.remainingBalance > 0) {
+                if (
+                    this.paymentForm.amount === "" &&
+                    this.remainingBalance > 0
+                ) {
                     this.paymentForm.amount = String(this.remainingBalance);
                 }
             } catch (error) {
@@ -567,9 +581,12 @@ export function invoiceIndexPage() {
             this.paymentMessage = "";
 
             try {
+                const note = this.paymentForm.note.trim();
+
                 const response = await createPayment(this.detail.id, {
                     amount,
                     method: this.paymentForm.method,
+                    note: note === "" ? null : note,
                 });
 
                 const approvalUrl = response.data?.approval_url;
@@ -589,8 +606,8 @@ export function invoiceIndexPage() {
                 this.paymentMessage =
                     error instanceof ApiError
                         ? (firstFieldError(error.errors, "invoice") ??
-                            firstFieldError(error.errors, "amount") ??
-                            error.message)
+                          firstFieldError(error.errors, "amount") ??
+                          error.message)
                         : "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.";
                 this.paymentSubmitting = false;
             }
@@ -615,7 +632,11 @@ export function invoiceIndexPage() {
         },
 
         async confirmCancel() {
-            if (!this.cancelTarget || this.cancelling || !this.canUpdateStatus) {
+            if (
+                !this.cancelTarget ||
+                this.cancelling ||
+                !this.canUpdateStatus
+            ) {
                 return;
             }
 
@@ -639,8 +660,8 @@ export function invoiceIndexPage() {
                 const message =
                     error instanceof ApiError
                         ? (firstFieldError(error.errors, "invoice") ??
-                            firstFieldError(error.errors, "status") ??
-                            error.message)
+                          firstFieldError(error.errors, "status") ??
+                          error.message)
                         : "Không thể hủy hóa đơn.";
 
                 this.$store.ui.notify(message, "error");

@@ -3,8 +3,7 @@
 @section('title', 'Hóa đơn')
 
 @section('content')
-<div x-data="invoiceIndexPage" x-on:keydown.escape.window="handleEscape()"
-    class="mx-auto max-w-[1400px] space-y-6">
+<div x-data="invoiceIndexPage" x-on:keydown.escape.window="handleEscape()" class="mx-auto max-w-[1400px] space-y-6">
     <x-layout.page-header title="Hóa đơn" description="Hóa đơn lập từ phiếu khám, theo dõi thanh toán qua PayPal.">
         <x-slot:actions>
             <x-ui.button variant="secondary" x-on:click="refresh()" x-bind:disabled="refreshing">
@@ -111,7 +110,8 @@
                                 x-text="formatCurrency(invoice.total)"></td>
                             <td class="whitespace-nowrap px-5 py-4">
                                 <span class="rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset"
-                                    x-bind:class="statusClasses(invoice.status)" x-text="statusLabel(invoice.status)"></span>
+                                    x-bind:class="statusClasses(invoice.status)"
+                                    x-text="statusLabel(invoice.status)"></span>
                             </td>
                             <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600"
                                 x-text="formatDate(invoice.issued_at, { dateStyle: 'medium' })"></td>
@@ -174,7 +174,8 @@
             <div class="flex items-start justify-between gap-3">
                 <div>
                     <p class="font-bold text-slate-900" x-text="detail?.examination?.patient?.full_name ?? '—'"></p>
-                    <p class="text-sm text-slate-500" x-text="`BS. ${detail?.examination?.doctor?.user?.name ?? '—'}`"></p>
+                    <p class="text-sm text-slate-500" x-text="`BS. ${detail?.examination?.doctor?.user?.name ?? '—'}`">
+                    </p>
                 </div>
                 <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset"
                     x-bind:class="statusClasses(detail?.status)" x-text="statusLabel(detail?.status)"></span>
@@ -226,7 +227,8 @@
                 <div x-show="paymentsLoading" class="text-sm text-slate-500">Đang tải…</div>
                 <p x-cloak x-show="paymentsError" class="text-sm text-rose-600" x-text="paymentsError"></p>
 
-                <div x-show="!paymentsLoading && !paymentsError" class="overflow-x-auto rounded-xl border border-slate-200">
+                <div x-show="!paymentsLoading && !paymentsError"
+                    class="overflow-x-auto rounded-xl border border-slate-200">
                     <table class="min-w-full divide-y divide-slate-200 text-sm">
                         <thead class="bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase">
                             <tr>
@@ -239,18 +241,24 @@
                         <tbody class="divide-y divide-slate-100 bg-white">
                             <template x-if="payments.length === 0">
                                 <tr>
-                                    <td colspan="4" class="px-4 py-6 text-center text-slate-400">Chưa có giao dịch nào.</td>
+                                    <td colspan="4" class="px-4 py-6 text-center text-slate-400">Chưa có giao dịch nào.
+                                    </td>
                                 </tr>
                             </template>
                             <template x-for="payment in payments" :key="payment.id">
                                 <tr>
-                                    <td class="px-4 py-2 font-semibold text-slate-900" x-text="formatCurrency(payment.amount)"></td>
-                                    <td class="px-4 py-2 text-slate-600" x-text="payment.method === 'visa' ? 'Visa' : 'PayPal'"></td>
+                                    <td class="px-4 py-2 font-semibold text-slate-900"
+                                        x-text="formatCurrency(payment.amount)"></td>
+                                    <td class="px-4 py-2 text-slate-600"
+                                        x-text="payment.method === 'visa' ? 'Visa' : 'PayPal'"></td>
                                     <td class="px-4 py-2">
                                         <span class="rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset"
-                                            x-bind:class="statusClasses(payment.status)" x-text="statusLabel(payment.status)"></span>
+                                            x-bind:class="statusClasses(payment.status)"
+                                            x-text="statusLabel(payment.status)"></span>
                                     </td>
-                                    <td class="px-4 py-2 text-slate-500" x-text="formatDate(payment.paid_at ?? payment.created_at, { dateStyle: 'short' })"></td>
+                                    <td class="px-4 py-2 text-slate-500"
+                                        x-text="formatDate(payment.paid_at ?? payment.created_at, { dateStyle: 'short' })">
+                                    </td>
                                 </tr>
                             </template>
                         </tbody>
@@ -263,8 +271,9 @@
                 class="space-y-3 rounded-xl border border-dashed border-slate-300 p-4">
                 <p class="text-sm font-semibold text-slate-700">Tạo thanh toán</p>
 
-                <p x-cloak x-show="paymentMessage" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"
-                    role="alert" x-text="paymentMessage"></p>
+                <p x-cloak x-show="paymentMessage"
+                    class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700" role="alert"
+                    x-text="paymentMessage"></p>
 
                 <div class="grid gap-3 sm:grid-cols-3">
                     <div>
@@ -289,6 +298,12 @@
                             <x-ui.icon name="arrow-right" size="h-4 w-4" />
                         </x-ui.button>
                     </div>
+                </div>
+
+                <div>
+                    <label class="mb-1 block text-xs font-semibold text-slate-600">Ghi chú (không bắt buộc)</label>
+                    <input type="text" class="form-input" x-model="paymentForm.note"
+                        placeholder="Ví dụ: thu tại quầy, chuyển khoản đợt 1...">
                 </div>
 
                 <p class="text-xs text-slate-400">
@@ -384,15 +399,16 @@
                 <label for="invoice-discount" class="mb-2 block text-sm font-semibold text-slate-700">
                     Giảm giá (VND)
                 </label>
-                <input id="invoice-discount" type="number" min="0" step="1" class="form-input"
-                    x-model="form.discount" x-bind:class="{ 'form-input-error': fieldError('discount') }">
+                <input id="invoice-discount" type="number" min="0" step="1" class="form-input" x-model="form.discount"
+                    x-bind:class="{ 'form-input-error': fieldError('discount') }">
                 <p x-cloak x-show="fieldError('discount')" class="mt-1.5 text-sm text-rose-600"
                     x-text="fieldError('discount')"></p>
             </div>
         </form>
 
         <x-slot:footer>
-            <x-ui.button variant="secondary" x-on:click="closeFormModal()" x-bind:disabled="submitting">Hủy</x-ui.button>
+            <x-ui.button variant="secondary" x-on:click="closeFormModal()" x-bind:disabled="submitting">Hủy
+            </x-ui.button>
 
             <x-ui.button type="submit" form="invoice-form" x-bind:disabled="submitting">
                 <span x-show="submitting"
