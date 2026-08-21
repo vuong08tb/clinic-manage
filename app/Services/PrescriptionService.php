@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Constants\ActivityLogAction;
+use App\Constants\ActivityLogSubject;
 use App\Constants\PrescriptionMessage;
 use App\Models\Examination;
 use App\Models\Medicine;
@@ -18,6 +20,11 @@ use Illuminate\Validation\ValidationException;
  */
 class PrescriptionService
 {
+    /**
+     * Create a new prescription service instance.
+     */
+    public function __construct(private readonly ActivityLogger $logger) {}
+
     /**
      * Paginate prescriptions with validated filters and eager-loaded clinical context.
      *
@@ -135,9 +142,27 @@ class PrescriptionService
                         ]);
                     }
 
+                    $stockBefore = (int) $medicine->stock;
                     $medicine->decrement('stock', $delta);
+
+                    $this->recordStockMovement(
+                        $medicine,
+                        ActivityLogAction::STOCK_DEDUCTED,
+                        $stockBefore,
+                        $delta,
+                        (int) $prescription->getKey(),
+                    );
                 } elseif ($delta < 0) {
+                    $stockBefore = (int) $medicine->stock;
                     $medicine->increment('stock', abs($delta));
+
+                    $this->recordStockMovement(
+                        $medicine,
+                        ActivityLogAction::STOCK_RESTORED,
+                        $stockBefore,
+                        abs($delta),
+                        (int) $prescription->getKey(),
+                    );
                 }
             }
 
@@ -163,7 +188,17 @@ class PrescriptionService
                 ->lockForUpdate()
                 ->findOrFail($lockedItem->medicine_id);
 
+            $stockBefore = (int) $medicine->stock;
             $medicine->increment('stock', $lockedItem->quantity);
+
+            $this->recordStockMovement(
+                $medicine,
+                ActivityLogAction::STOCK_RESTORED,
+                $stockBefore,
+                (int) $lockedItem->quantity,
+                (int) $prescription->getKey(),
+            );
+
             $lockedItem->delete();
         });
     }
@@ -202,7 +237,16 @@ class PrescriptionService
             ]);
         }
 
+        $stockBefore = (int) $medicine->stock;
         $medicine->decrement('stock', $item['quantity']);
+
+        $this->recordStockMovement(
+            $medicine,
+            ActivityLogAction::STOCK_DEDUCTED,
+            $stockBefore,
+            (int) $item['quantity'],
+            (int) $prescription->getKey(),
+        );
 
         return $prescription->items()->create([
             'medicine_id' => $medicine->getKey(),
@@ -210,6 +254,29 @@ class PrescriptionService
             'dosage' => $item['dosage'],
             'usage_instruction' => $item['usage_instruction'] ?? null,
         ]);
+    }
+
+    /**
+     * Record a stock movement caused by adding, adjusting, or removing a medicine line.
+     *
+     * The medicine subject carries the stock trail while PrescriptionItemObserver audits
+     * the line itself, so a single edit is traceable from either side.
+     */
+    private function recordStockMovement(
+        Medicine $medicine,
+        string $action,
+        int $stockBefore,
+        int $quantity,
+        int $prescriptionId,
+    ): void {
+        $this->logger->logChange(
+            ActivityLogSubject::MEDICINE,
+            (int) $medicine->getKey(),
+            $action,
+            ['stock' => $stockBefore],
+            ['stock' => (int) $medicine->stock],
+            ['quantity' => $quantity, 'prescription_id' => $prescriptionId],
+        );
     }
 
     /**

@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Constants\ActivityLogAction;
+use App\Constants\ActivityLogSubject;
 use App\Constants\MedicineMessage;
 use App\Models\Medicine;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -13,6 +15,11 @@ use Illuminate\Validation\ValidationException;
  */
 class MedicineService
 {
+    /**
+     * Create a new medicine service instance.
+     */
+    public function __construct(private readonly ActivityLogger $logger) {}
+
     public function paginate(array $filters): LengthAwarePaginator
     {
         return Medicine::query()
@@ -59,9 +66,20 @@ class MedicineService
                 ]);
             }
 
+            $stockBefore = (int) $lockedMedicine->stock;
+
             $lockedMedicine->update([
                 'stock' => $newStock,
             ]);
+
+            $this->logger->logChange(
+                ActivityLogSubject::MEDICINE,
+                (int) $lockedMedicine->getKey(),
+                ActivityLogAction::STOCK_ADJUSTED,
+                ['stock' => $stockBefore],
+                ['stock' => (int) $newStock],
+                ['quantity' => (int) $data['quantity']],
+            );
 
             return $lockedMedicine->refresh();
         });

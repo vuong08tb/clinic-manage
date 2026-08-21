@@ -1,6 +1,7 @@
 # Activity Logs — Kế hoạch triển khai
 
-> **Trạng thái:** Chờ review. Chưa viết code cho tới khi được duyệt.
+> **Trạng thái:** Đã triển khai xong M1 → M6. `pint` sạch, `php artisan test` 238/238.
+> M7 (API đọc log) tách sang task riêng — xem mục 10.
 > **Tuân thủ:** `skills/backend.md` (mục 8 Activity log, mục 12 Comment code),
 > `skills/database.md` (mục 3 JSONB, mục 4 ma trận constraint, mục 11 timestamptz).
 
@@ -188,12 +189,17 @@ Dùng `$model->wasChanged('status')` + `$model->getOriginal('status')` để b�
 [:166](../app/Services/PrescriptionService.php#L166),
 [:205](../app/Services/PrescriptionService.php#L205)).
 
-`increment`/`decrement` đi qua đường update trực tiếp trên query builder, `getChanges()`
-không phản ánh giống `update()` thông thường → dựa vào observer `updated` để lấy
-before/after của `stock` là **không chắc chắn**.
+**Đã đo thực tế, và kết quả bác bỏ giả định ban đầu:** `decrement()` *có* cập nhật giá trị
+in-memory và `getChanges()` *có* trả đúng `{"stock": 45}`. Về mặt kỹ thuật, observer đọc được
+before/after của `stock`.
 
-Ngoài ra observer cũng không biết *ngữ cảnh nghiệp vụ*: cùng là `stock` giảm, nhưng do kê đơn
-hay do thủ kho điều chỉnh là hai action khác nhau, và log cần biết `prescription_id` nào gây ra.
+Lý do thật sự để không dùng observer ở đây là **ngữ cảnh nghiệp vụ**: cùng một lần `stock`
+giảm, nhưng do kê đơn hay do thủ kho điều chỉnh là hai action khác nhau, và log cần biết
+`prescription_id` nào gây ra. Observer chỉ thấy "stock: 48 → 45", không thể phân biệt.
+
+**Hệ quả quan trọng:** vì `decrement()`/`increment()` *có* bắn event `updated`, tuyệt đối
+**không được thêm `MedicineObserver::updated()`** — mỗi lần trừ kho sẽ sinh 2 dòng log, một
+dòng đầy đủ ngữ cảnh và một dòng trống rỗng.
 
 → **Trừ/hoàn/điều chỉnh kho ghi log bằng cách gọi `ActivityLogger` trực tiếp trong Service**,
 nơi đã có sẵn cả giá trị cũ, giá trị mới và ngữ cảnh.
@@ -239,19 +245,43 @@ về dưới dạng `status ≠ 'COMPLETED'` → [dòng 133-135](../app/Services
 Kết cục: khách mất tiền, hệ thống ghi "thanh toán thất bại". Một bug ở tầng phụ trợ biến
 thành sự cố tài chính.
 
-### Cách triển khai
+### Cách triển khai — quy tắc nằm gọn trong `ActivityLogger`
 
-| Nơi ghi log | Cơ chế |
+Toàn bộ cơ chế nằm ở **một chỗ duy nhất**: `ActivityLogger::log()` dựng payload **ngay lập tức**
+rồi bọc *chỉ mỗi lệnh INSERT* trong `DB::afterCommit()`.
+
+| Thành phần | Cơ chế |
 |---|---|
-| 7 Observer | `implements ShouldHandleEventsAfterCommit` (`Illuminate\Contracts\Events`) |
-| 3 chỗ gọi `ActivityLogger` trực tiếp trong Service | Bọc trong `DB::afterCommit(fn () => ...)` |
+| `ActivityLogger::log()` | Payload dựng eager; `DB::afterCommit(fn () => ActivityLog::create(...))` |
+| Observer | **Chạy inline, KHÔNG dùng `ShouldHandleEventsAfterCommit`** — xem cảnh báo dưới |
+| 3 chỗ gọi trực tiếp trong Service | Gọi thẳng `$this->logger->...`, không cần bọc gì |
 
-Cả hai đều là cơ chế có sẵn của Laravel 13 (đã kiểm chứng trong `vendor/`), không phải
-workaround tự chế.
+`DatabaseTransactionsManager::addCallback()` có nhánh fallback chạy callback ngay khi không có
+transaction nào mở, nên đặt `DB::afterCommit()` trong logger là an toàn ở mọi ngữ cảnh — kể cả
+khi gọi từ console/seeder.
 
-**Hành vi:** transaction rollback → callback **không chạy** → không có log rác cho nghiệp vụ
-đã bị huỷ. Transaction commit → log ghi sau, lỗi ở đó không thể rollback thứ đã commit.
-Khi không có transaction nào đang mở, callback chạy ngay lập tức.
+**Hành vi:** rollback → callback bị huỷ, không có log rác. Commit → INSERT chạy sau
+`$pdo->commit()` ([ManagesTransactions.php:207 rồi :215](../vendor/laravel/framework/src/Illuminate/Database/Concerns/ManagesTransactions.php)),
+nên lỗi ghi log không thể rollback thứ đã commit.
+
+### ⚠ Vì sao observer KHÔNG được dùng `ShouldHandleEventsAfterCommit`
+
+Kế hoạch ban đầu định cho 7 observer implement interface này. **Kiểm chứng thực tế cho thấy
+làm vậy sẽ phá hỏng `before`:**
+
+`Model::finishSave()` gọi `syncOriginal()` ngay sau khi save xong, ghi đè `original` bằng giá
+trị mới. Observer inline fire *trong* `performUpdate()` — trước thời điểm đó — nên còn đọc được
+giá trị cũ. Callback hoãn tới lúc commit thì đã muộn.
+
+Đo trực tiếp trên dự án (đổi `name` của một user):
+
+| Thời điểm đọc | `getRawOriginal('name')` |
+|---|---|
+| Observer inline | `"Test Receptionist 2"` — giá trị cũ, **đúng** |
+| Hoãn tới afterCommit | `"TEN_THU_NGHIEM"` — giá trị mới, **sai** |
+
+Vì payload đã được dựng eager trong `ActivityLogger`, observer inline vẫn đạt đủ mọi tính chất
+an toàn của phương án C. Interface đó vừa thừa vừa có hại.
 
 ### Đánh đổi đã chấp nhận
 
@@ -318,24 +348,28 @@ sẽ không tự động lọt vào log.
 > Các service trên nhận `ActivityLogger` qua constructor injection, giữ đúng kiến trúc B.
 > `PaymentService` hiện đã có constructor (`PayPalService`) — thêm tham số thứ hai.
 >
-> Cả 7 observer đều `implements ShouldHandleEventsAfterCommit`; cả 3 chỗ gọi trực tiếp đều
-> bọc `DB::afterCommit()` — theo quy tắc chốt ở mục 6.
+> Observer chạy inline và Service gọi thẳng logger — không chỗ nào tự bọc `DB::afterCommit()`,
+> vì `ActivityLogger` đã lo việc đó. Xem mục 6.
 
 ---
 
-## 9. Thứ tự triển khai (từng module, giao code sau khi duyệt)
+## 9. Thứ tự triển khai — **đã hoàn thành M1 → M6**
 
-| Bước | Nội dung | Chạy được độc lập? |
+| Bước | Nội dung | Trạng thái |
 |---|---|---|
-| **M1** | Migration + Model + 2 file Constants | Có — `php artisan migrate` xong là kiểm tra được schema |
-| **M2** | `ActivityLogger` + morph map + đăng ký provider | Có — chưa có observer thì chưa ghi gì |
-| **M3** | Observers cho user / appointment / examination | Có — test được ngay 3 luồng |
-| **M4** | Observers cho prescription / invoice / payment | Có |
-| **M5** | Gọi trực tiếp trong 3 Service (kho + capture) | Có |
-| **M6** | Factory + `ActivityLogTest` | Có — chốt bằng test xanh |
-| **M7** *(tùy chọn)* | API đọc log — xem mục 10 | Cần thêm permission |
+| **M1** | Migration + Model + 2 file Constants | ✅ Xong |
+| **M2** | `ActivityLogger` + morph map + đăng ký provider | ✅ Xong |
+| **M3** | Observers cho user / appointment / examination | ✅ Xong |
+| **M4** | Observers cho prescription / prescription_item / invoice / payment | ✅ Xong |
+| **M5** | Gọi trực tiếp trong 3 Service (kho + capture) | ✅ Xong |
+| **M6** | `ActivityLogTest` — 13 test | ✅ Xong |
+| **M7** *(tùy chọn)* | API đọc log — xem mục 10 | Tách task riêng |
 
-Mỗi bước là một khối code hoàn chỉnh, copy vào là chạy được, không phụ thuộc bước sau.
+Kết quả cuối: `./vendor/bin/pint --test` passed, `php artisan test` **238/238** (1395 assertions).
+
+> **`ActivityLogFactory` đã bỏ, có chủ đích.** Không test nào cần tạo sẵn dòng log — cả 13 test
+> đều assert trên log do chính ứng dụng ghi ra. Thêm factory (và trait `HasFactory` kèm theo)
+> sẽ là code chết. Khi nào có test cần dựng sẵn lịch sử log thì thêm.
 
 ---
 
@@ -360,26 +394,34 @@ Trong lúc chưa có API, verify M1→M6 bằng `php artisan tinker` hoặc quer
 
 ---
 
-## 11. Kế hoạch test (`tests/Feature/ActivityLogTest.php`)
+## 11. Test đã viết (`tests/Feature/ActivityLogTest.php`) — 13 test, xanh
 
 | Test | Khẳng định |
 |---|---|
-| `test_creating_user_writes_activity_log` | 1 dòng, `subject_type=user`, `action=created` |
-| `test_user_password_is_never_written_to_activity_log_meta` | `meta` không chứa key `password` |
-| `test_updating_appointment_status_logs_before_and_after` | `meta.before.status`, `meta.after.status` đúng |
-| `test_creating_examination_writes_activity_log` | `action=created` |
-| `test_prescription_item_deducts_stock_and_logs_before_after` | `meta.before.stock` − `meta.after.stock` = quantity |
-| `test_removing_prescription_item_logs_stock_restored` | `action=stock_restored` |
-| `test_adjust_stock_logs_before_and_after` | `action=stock_adjusted` |
-| `test_creating_invoice_writes_activity_log` | `after.total` = subtotal − discount |
-| `test_capturing_payment_logs_captured_action` | `action=captured`, `Http::fake` PayPal |
-| `test_failed_capture_logs_capture_failed_action` | `action=capture_failed` |
-| `test_failed_business_rule_rolls_back_activity_log` | Trừ kho thất bại (422) → **0 dòng log** |
-| `test_seeder_writes_log_with_null_user_id` | `user_id` null không lỗi |
+| `test_creating_user_writes_activity_log` | 1 dòng `user/created`, `user_id` = admin thao tác |
+| `test_user_password_is_never_written_to_activity_log_meta` | `password` = `[REDACTED]`, không có hash `$2y$` |
+| `test_updating_appointment_status_logs_before_and_after` | `before.status`/`after.status` đúng |
+| `test_creating_examination_writes_activity_log` | `examination/created` **và** `appointment/status_changed` |
+| `test_prescription_item_deducts_stock_and_logs_before_after` | stock 10→7, `quantity`=3, đúng `prescription_id` |
+| `test_removing_prescription_item_logs_stock_restored` | stock 10→14, `action=stock_restored` |
+| `test_adjust_stock_logs_before_and_after` | stock 20→35, `action=stock_adjusted` |
+| `test_creating_invoice_writes_activity_log` | **đúng 1 dòng** — chặn hồi quy bẫy `invoice_code` |
+| `test_capturing_payment_logs_captured_action` | `captured` + `provider_capture_id` + invoice `paid` |
+| `test_failed_capture_logs_capture_failed_action` | `capture_failed`, invoice **không** đổi trạng thái |
+| `test_failed_business_rule_rolls_back_activity_log` | Thiếu kho (422) → **0 dòng log**, kho nguyên vẹn |
+| `test_console_originated_change_writes_log_with_null_user_id` | `user_id` null khi không có ai đăng nhập |
+| `test_subject_relation_resolves_through_the_morph_map` | `$log->subject` trả đúng model qua morph map |
 
-`test_failed_business_rule_rolls_back_activity_log` là test quan trọng nhất — nó chứng minh
-quyết định ở mục 6 hoạt động đúng: nghiệp vụ rollback thì callback `afterCommit` **không chạy**,
-nên không sinh log rác.
+Hai test đáng chú ý:
+
+- **`test_failed_business_rule_rolls_back_activity_log`** — chứng minh quyết định mục 6: nghiệp
+  vụ rollback thì callback `afterCommit` bị huỷ, không sinh log rác.
+- **`test_creating_invoice_writes_activity_log`** — assert **đúng 1 dòng**, khoá lại bẫy
+  `invoice_code` hai bước ở mục 4. Nếu ai đó thêm `invoice_code` vào watched list, test này đỏ.
+
+> **Lưu ý khi viết thêm test:** factory **cũng** kích hoạt observer. `Invoice::factory()->create()`
+> tự ghi một dòng `invoice/created`. Vì vậy các assertion nên lọc theo `action` cụ thể thay vì
+> đếm tổng số dòng của một subject.
 
 ---
 

@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Constants\ActivityLogAction;
+use App\Constants\ActivityLogSubject;
 use App\Constants\PaymentMessage;
 use App\Models\Invoice;
 use App\Models\Payment;
@@ -14,7 +16,13 @@ use Illuminate\Validation\ValidationException;
  */
 class PaymentService
 {
-    public function __construct(private readonly PayPalService $payPalService) {}
+    /**
+     * Create a new payment service instance.
+     */
+    public function __construct(
+        private readonly PayPalService $payPalService,
+        private readonly ActivityLogger $logger,
+    ) {}
 
     /**
      * Paginate payments with validated filters, most recent first.
@@ -119,6 +127,7 @@ class PaymentService
 
             $order = $this->payPalService->captureOrder($lockedPayment->provider_order_id);
             $success = data_get($order, 'status') === 'COMPLETED';
+            $statusBefore = $lockedPayment->status;
 
             if ($success) {
                 $lockedPayment->update([
@@ -127,11 +136,28 @@ class PaymentService
                     'paid_at' => now(),
                 ]);
 
+                $this->logger->logChange(
+                    ActivityLogSubject::PAYMENT,
+                    (int) $lockedPayment->getKey(),
+                    ActivityLogAction::CAPTURED,
+                    ['status' => $statusBefore],
+                    ['status' => Payment::STATUS_COMPLETED],
+                    ['provider_capture_id' => $lockedPayment->provider_capture_id],
+                );
+
                 if ($completedTotal + (float) $lockedPayment->amount >= (float) $lockedInvoice->total) {
                     $lockedInvoice->update(['status' => Invoice::STATUS_PAID]);
                 }
             } else {
                 $lockedPayment->update(['status' => Payment::STATUS_FAILED]);
+
+                $this->logger->logChange(
+                    ActivityLogSubject::PAYMENT,
+                    (int) $lockedPayment->getKey(),
+                    ActivityLogAction::CAPTURE_FAILED,
+                    ['status' => $statusBefore],
+                    ['status' => Payment::STATUS_FAILED],
+                );
             }
 
             return $lockedPayment->refresh();
