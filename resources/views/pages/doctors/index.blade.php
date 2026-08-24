@@ -3,8 +3,7 @@
 @section('title', 'Bác sĩ')
 
 @section('content')
-<div x-data="doctorIndexPage" x-on:keydown.escape.window="handleEscape()"
-    class="mx-auto max-w-[1400px] space-y-6">
+<div x-data="doctorIndexPage" x-on:keydown.escape.window="handleEscape()" class="mx-auto max-w-[1400px] space-y-6">
     <x-layout.page-header title="Bác sĩ" description="Hồ sơ bác sĩ gắn với tài khoản người dùng và chuyên khoa.">
         <x-slot:actions>
             <x-ui.button variant="secondary" x-on:click="refresh()" x-bind:disabled="refreshing">
@@ -30,7 +29,8 @@
             </div>
 
             <div class="sm:w-56">
-                <label for="doctor-specialty" class="mb-2 block text-sm font-semibold text-slate-700">Chuyên khoa</label>
+                <label for="doctor-specialty" class="mb-2 block text-sm font-semibold text-slate-700">Chuyên
+                    khoa</label>
                 <select id="doctor-specialty" class="form-input" x-model="filters.specialty_id"
                     x-on:change="applyFilters()">
                     <option value="">Tất cả</option>
@@ -68,15 +68,14 @@
         <div class="divide-y divide-slate-100 md:hidden">
             <template x-for="doctor in doctors" :key="doctor.id">
                 <article class="space-y-2 p-4">
-                    <h3 class="font-bold text-slate-900" x-text="`BS. ${doctor.user?.name ?? '—'}`"></h3>
+                    <h3 class="font-bold text-slate-900" x-text="formatDoctorName(doctor.user?.name)"></h3>
                     <p class="text-sm text-slate-500" x-text="doctor.user?.email"></p>
                     <p class="text-sm text-slate-600" x-text="doctor.specialty?.name ?? '—'"></p>
                     <p class="text-xs text-slate-500" x-text="`CCHN: ${doctor.license_number}`"></p>
                     <p class="truncate text-xs text-slate-500" x-text="doctor.bio || 'Không có tiểu sử'"></p>
 
                     <div class="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
-                        <x-ui.row-action label="Xem" icon="eye" x-show="canView"
-                            x-on:click="openDetailModal(doctor)" />
+                        <x-ui.row-action label="Xem" icon="eye" x-show="canView" x-on:click="openDetailModal(doctor)" />
                         <x-ui.row-action label="Sửa" icon="edit" tone="neutral" x-show="canUpdate"
                             x-on:click="openEditModal(doctor)" />
                         <x-ui.row-action label="Xóa" icon="trash" tone="danger" x-show="canDelete"
@@ -102,13 +101,14 @@
                     <template x-for="doctor in doctors" :key="doctor.id">
                         <tr class="hover:bg-slate-50">
                             <td class="px-5 py-4">
-                                <p class="font-semibold text-slate-900" x-text="`BS. ${doctor.user?.name ?? '—'}`"></p>
+                                <p class="font-semibold text-slate-900" x-text="formatDoctorName(doctor.user?.name)"></p>
                                 <p class="mt-1 text-xs text-slate-500" x-text="doctor.user?.email"></p>
                             </td>
                             <td class="px-5 py-4 text-sm text-slate-700" x-text="doctor.specialty?.name ?? '—'"></td>
-                            <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600" x-text="doctor.license_number"></td>
-                            <td class="max-w-xs truncate px-5 py-4 text-sm text-slate-600"
-                                x-text="doctor.bio || '—'"></td>
+                            <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600"
+                                x-text="doctor.license_number"></td>
+                            <td class="max-w-xs truncate px-5 py-4 text-sm text-slate-600" x-text="doctor.bio || '—'">
+                            </td>
                             <td class="whitespace-nowrap px-5 py-4 text-right">
                                 <div class="inline-flex items-center gap-2">
                                     <x-ui.row-action label="Xem" icon="eye" x-show="canView"
@@ -164,7 +164,7 @@
         <dl x-cloak x-show="!detailLoading && !detailError && detail" class="grid gap-5 sm:grid-cols-2">
             <div class="sm:col-span-2">
                 <dt class="text-sm font-medium text-slate-500">Bác sĩ</dt>
-                <dd class="mt-1 text-lg font-bold text-slate-900" x-text="`BS. ${detail?.user?.name ?? '—'}`"></dd>
+                <dd class="mt-1 text-lg font-bold text-slate-900" x-text="formatDoctorName(detail?.user?.name)"></dd>
             </div>
 
             <div>
@@ -184,7 +184,8 @@
 
             <div class="sm:col-span-2">
                 <dt class="text-sm font-medium text-slate-500">Tiểu sử</dt>
-                <dd class="mt-1 whitespace-pre-line text-sm text-slate-700" x-text="detail?.bio || 'Không có tiểu sử.'"></dd>
+                <dd class="mt-1 whitespace-pre-line text-sm text-slate-700" x-text="detail?.bio || 'Không có tiểu sử.'">
+                </dd>
             </div>
         </dl>
 
@@ -207,7 +208,8 @@
                     Tài khoản người dùng <span class="text-rose-600">*</span>
                 </label>
 
-                <div x-show="form.user_id" class="flex items-center justify-between rounded-xl border border-slate-300 px-3 py-2.5">
+                <div x-show="form.user_id"
+                    class="flex items-center justify-between rounded-xl border border-slate-300 px-3 py-2.5">
                     <span class="text-sm text-slate-800" x-text="form.user_label"></span>
                     <button type="button" class="text-xs font-semibold text-rose-600" x-on:click="clearUser()">
                         Đổi
@@ -215,8 +217,8 @@
                 </div>
 
                 <div x-show="!form.user_id" class="relative">
-                    <input type="text" class="form-input" placeholder="Tìm theo tên hoặc email"
-                        x-model="userQuery" x-on:input.debounce.350ms="searchUsers()"
+                    <input type="text" class="form-input" placeholder="Tìm theo tên hoặc email" x-model="userQuery"
+                        x-on:input.debounce.350ms="searchUsers()"
                         x-bind:class="{ 'form-input-error': fieldError('user_id') }">
 
                     <ul x-show="userResults.length > 0"
@@ -239,7 +241,8 @@
                 </div>
 
                 <p class="mt-1.5 text-xs text-slate-400">Chỉ hiện tài khoản đang có vai trò Bác sĩ.</p>
-                <p x-cloak x-show="fieldError('user_id')" class="mt-1.5 text-sm text-rose-600" x-text="fieldError('user_id')"></p>
+                <p x-cloak x-show="fieldError('user_id')" class="mt-1.5 text-sm text-rose-600"
+                    x-text="fieldError('user_id')"></p>
             </div>
 
             <div>
@@ -262,7 +265,8 @@
                     Số chứng chỉ hành nghề <span class="text-rose-600">*</span>
                 </label>
                 <input id="doctor-license" type="text" class="form-input" maxlength="255" required
-                    x-model.trim="form.license_number" x-bind:class="{ 'form-input-error': fieldError('license_number') }">
+                    x-model.trim="form.license_number"
+                    x-bind:class="{ 'form-input-error': fieldError('license_number') }">
                 <p x-cloak x-show="fieldError('license_number')" class="mt-1.5 text-sm text-rose-600"
                     x-text="fieldError('license_number')"></p>
             </div>
@@ -271,12 +275,14 @@
                 <label for="doctor-bio" class="mb-2 block text-sm font-semibold text-slate-700">Tiểu sử</label>
                 <textarea id="doctor-bio" rows="4" class="form-input" maxlength="5000" x-model.trim="form.bio"
                     x-bind:class="{ 'form-input-error': fieldError('bio') }"></textarea>
-                <p x-cloak x-show="fieldError('bio')" class="mt-1.5 text-sm text-rose-600" x-text="fieldError('bio')"></p>
+                <p x-cloak x-show="fieldError('bio')" class="mt-1.5 text-sm text-rose-600" x-text="fieldError('bio')">
+                </p>
             </div>
         </form>
 
         <x-slot:footer>
-            <x-ui.button variant="secondary" x-on:click="closeFormModal()" x-bind:disabled="submitting">Hủy</x-ui.button>
+            <x-ui.button variant="secondary" x-on:click="closeFormModal()" x-bind:disabled="submitting">Hủy
+            </x-ui.button>
             <x-ui.button type="submit" form="doctor-form" x-bind:disabled="submitting">
                 <span x-show="submitting"
                     class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"

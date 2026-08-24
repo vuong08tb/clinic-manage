@@ -90,12 +90,12 @@ class DemoSeeder extends Seeder
         $bySpecialty = $specialties->keyBy('name');
 
         $definitions = [
-            ['name' => 'BS. Nguyễn Văn An', 'email' => 'doctor@clinic.test', 'specialty' => 'Nội tổng quát', 'license' => 'VN-DOC-0001'],
-            ['name' => 'BS. Trần Thị Bình', 'email' => 'doctor.binh@clinic.test', 'specialty' => 'Nhi khoa', 'license' => 'VN-DOC-0002'],
-            ['name' => 'BS. Lê Minh Cường', 'email' => 'doctor.cuong@clinic.test', 'specialty' => 'Da liễu', 'license' => 'VN-DOC-0003'],
-            ['name' => 'BS. Phạm Thị Dung', 'email' => 'doctor.dung@clinic.test', 'specialty' => 'Tim mạch', 'license' => 'VN-DOC-0004'],
-            ['name' => 'BS. Hoàng Văn Em', 'email' => 'doctor.em@clinic.test', 'specialty' => 'Tim mạch', 'license' => 'VN-DOC-0005'],
-            ['name' => 'BS. Vũ Thị Phương', 'email' => 'doctor.phuong@clinic.test', 'specialty' => 'Tai Mũi Họng', 'license' => 'VN-DOC-0006'],
+            ['name' => 'Nguyễn Văn An', 'email' => 'doctor@clinic.test', 'specialty' => 'Nội tổng quát', 'license' => 'VN-DOC-0001'],
+            ['name' => 'Trần Thị Bình', 'email' => 'doctor.binh@clinic.test', 'specialty' => 'Nhi khoa', 'license' => 'VN-DOC-0002'],
+            ['name' => 'Lê Minh Cường', 'email' => 'doctor.cuong@clinic.test', 'specialty' => 'Da liễu', 'license' => 'VN-DOC-0003'],
+            ['name' => 'Phạm Thị Dung', 'email' => 'doctor.dung@clinic.test', 'specialty' => 'Tim mạch', 'license' => 'VN-DOC-0004'],
+            ['name' => 'Hoàng Văn Em', 'email' => 'doctor.em@clinic.test', 'specialty' => 'Tim mạch', 'license' => 'VN-DOC-0005'],
+            ['name' => 'Vũ Thị Phương', 'email' => 'doctor.phuong@clinic.test', 'specialty' => 'Tai Mũi Họng', 'license' => 'VN-DOC-0006'],
         ];
 
         return collect($definitions)->map(function (array $data) use ($bySpecialty): Doctor {
