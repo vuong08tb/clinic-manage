@@ -27,6 +27,8 @@
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
+        <!-- Every 4xx is reported now, so a run would otherwise fill storage/logs with test noise. -->
+        <env name="LOG_CHANNEL" value="null"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

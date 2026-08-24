@@ -31,6 +31,46 @@
         </div>
     </section>
 
+    {{-- Chỉ số quản trị — chỉ tải khi tài khoản có quyền STATS.SHOW --}}
+    <section x-cloak x-show="adminStats" aria-labelledby="management-heading">
+        <div class="mb-4">
+            <h2 id="management-heading" class="text-base font-bold text-slate-900">Chỉ số quản trị</h2>
+            <p class="mt-1 text-sm text-slate-500">Số liệu tổng hợp dành cho quản trị viên.</p>
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+            <article class="surface-card p-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500">Doanh thu tháng này</p>
+                        <p class="mt-2 text-3xl font-bold tracking-tight text-slate-950"
+                            x-text="formatCurrency(adminStats?.revenue_this_month ?? 0)"></p>
+                    </div>
+                    <span class="grid h-11 w-11 place-items-center rounded-xl bg-emerald-50 text-sm font-bold text-emerald-700"
+                        aria-hidden="true">₫</span>
+                </div>
+                <p class="mt-5 border-t border-slate-100 pt-4 text-xs text-slate-500">
+                    Tiền đã thu được trong tháng
+                </p>
+            </article>
+
+            <article class="surface-card p-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <p class="text-sm font-medium text-slate-500">Thuốc sắp hết</p>
+                        <p class="mt-2 text-3xl font-bold tracking-tight text-slate-950"
+                            x-text="formatNumber(adminStats?.low_stock_medicines ?? 0)"></p>
+                    </div>
+                    <span class="grid h-11 w-11 place-items-center rounded-xl bg-orange-50 text-sm font-bold text-orange-700"
+                        aria-hidden="true">!</span>
+                </div>
+                <p class="mt-5 border-t border-slate-100 pt-4 text-xs text-slate-500">
+                    Tồn kho đã chạm ngưỡng cảnh báo
+                </p>
+            </article>
+        </div>
+    </section>
+
     <section aria-labelledby="overview-heading">
         <div class="mb-4 flex items-center justify-between">
             <div>

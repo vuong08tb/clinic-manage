@@ -38,7 +38,10 @@ class DemoSeederTest extends TestCase
         $this->assertSame(10, User::query()->count());
 
         $this->assertTrue(User::query()->where('email', 'admin@clinic.test')->exists());
-        $this->assertTrue(User::query()->where('email', 'doctor@clinic.test')->exists());
+        $this->assertDatabaseHas('users', [
+            'email' => 'doctor@clinic.test',
+            'name' => 'Nguyễn Văn An',
+        ]);
         $this->assertTrue(User::query()->where('email', 'receptionist@clinic.test')->exists());
         $this->assertTrue(User::query()->where('email', 'pharmacist@clinic.test')->exists());
         $this->assertTrue(User::query()->where('email', 'cashier@clinic.test')->exists());

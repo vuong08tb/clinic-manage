@@ -105,6 +105,16 @@ export function formatCurrency(value) {
     }).format(value ?? 0);
 }
 
+export function formatDoctorName(name) {
+    const value = String(name ?? "").trim();
+
+    if (!value) {
+        return "—";
+    }
+
+    return /^(?:BS\.|Bác sĩ)\s+/iu.test(value) ? value : `BS. ${value}`;
+}
+
 export function genderLabel(gender) {
     return GENDER_LABELS[gender] ?? "Không xác định";
 }

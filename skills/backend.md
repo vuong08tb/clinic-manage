@@ -242,13 +242,47 @@ Action tối thiểu: user (created/status), appointment status, examination, pr
 
 ---
 
-## 9. Stats
+## 9. System log (file theo ngày)
+
+Khác activity log ở mục 8: activity log ghi **thành công** vào DB cho nghiệp vụ đọc, system log ghi
+**thất bại** ra file cho dev đọc.
+
+Toàn bộ nằm ở config, **không có middleware và không có class riêng**:
+
+```
+# .env
+LOG_CHANNEL=daily        # storage/logs/laravel-YYYY-MM-DD.log
+LOG_LEVEL=warning        # chỉ warning trở lên
+LOG_DAILY_DAYS=30        # Monolog tự xoá file cũ hơn 30 ngày
+```
+
+Laravel bỏ qua mọi exception 4xx theo mặc định (`Handler::$internalDontReport`), nên phải gỡ ra
+trong `bootstrap/app.php`:
+
+```php
+$exceptions->stopIgnoring($clientErrors);                       // 401/403/404/422 mới vào log
+$exceptions->context(fn () => $requestContext());               // gắn method/url/user_id/ip
+$exceptions->report(function (Throwable $e) use (...): bool {
+    if ($status >= 500) return true;                            // 5xx: giữ stack trace
+    Log::warning(...); return false;                            // 4xx: 1 dòng gọn, bỏ trace
+});
+```
+
+**Không tự gọi `Log::` trong Controller/Service** cho lỗi nghiệp vụ — cứ ném exception, tầng report
+lo phần ghi. Chỉ gọi `Log::warning()` thủ công cho cảnh báo không phải exception (vd: gọi PayPal
+chậm bất thường).
+
+Chi tiết và lý do chọn phương án: [docs/system-logs.md](../docs/system-logs.md).
+
+---
+
+## 10. Stats
 
 Aggregate SQL (xem [database.md mục 8](database.md#8-stats-bằng-aggregate-không-đếm-bằng-php)) — không load rồi đếm bằng PHP.
 
 ---
 
-## 10. Feature test
+## 11. Feature test
 
 ```php
 class PaymentTest extends TestCase
@@ -277,7 +311,7 @@ class PaymentTest extends TestCase
 
 ---
 
-## 11. Checklist review backend trước PR
+## 12. Checklist review backend trước PR
 
 - [ ] Controller mỏng, business trong Service.
 - [ ] Form Request cho mọi API ghi; API Resource cho output.
@@ -289,7 +323,7 @@ class PaymentTest extends TestCase
 - [ ] Activity log ghi các action chính.
 - [ ] Feature test (mock PayPal) xanh.
 
-## 12. Comment code 
+## 13. Comment code 
 
 ### Mục tiêu
 

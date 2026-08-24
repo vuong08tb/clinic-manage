@@ -1,6 +1,6 @@
 import { ApiError } from "../../core/api-error";
 import { firstFieldError } from "../../core/form-errors";
-import { formatDate } from "../../core/formatters";
+import { formatDate, formatDoctorName } from "../../core/formatters";
 import {
     calculateVisiblePages,
     emptyPaginationMeta,
@@ -467,5 +467,6 @@ export function doctorIndexPage() {
         },
 
         formatDate,
+        formatDoctorName,
     };
 }

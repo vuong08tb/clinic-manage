@@ -61,6 +61,9 @@ export const PERMISSIONS = {
         UPDATE: 'DOCTORS.UPDATE',
         DELETE: 'DOCTORS.DELETE',
     },
+    STATS: {
+        SHOW: 'STATS.SHOW',
+    },
     USERS: {
         FINDALL: 'USERS.FINDALL',
         FINDONE: 'USERS.FINDONE',

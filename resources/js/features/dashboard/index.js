@@ -1,5 +1,6 @@
 import { apiRequest } from '../../core/api-client';
 import {
+    formatCurrency,
     formatDate,
     formatNumber,
     formatTime,
@@ -69,6 +70,11 @@ export function dashboardPage() {
         refreshing: false,
         todayLabel: formatDate(new Date()),
 
+        // Management figures from GET /api/stats. Only roles holding STATS.SHOW can read them,
+        // so the request is skipped entirely for everyone else rather than handled as a 403.
+        adminStats: null,
+        adminStatsLoading: false,
+
         get canCreatePatient() {
             return this.$store.auth.can(PERMISSIONS.PATIENTS.CREATE);
         },
@@ -108,9 +114,31 @@ export function dashboardPage() {
             await Promise.all([
                 ...this.widgets.map((widget) => this.loadWidget(widget)),
                 this.loadAppointments(),
+                this.loadAdminStats(),
             ]);
 
             this.refreshing = false;
+        },
+
+        async loadAdminStats() {
+            if (!this.$store.auth.can(PERMISSIONS.STATS.SHOW)) {
+                this.adminStats = null;
+
+                return;
+            }
+
+            this.adminStatsLoading = true;
+
+            try {
+                const response = await apiRequest('/stats');
+
+                this.adminStats = response.data;
+            } catch {
+                // The strip is supplementary; a failure here must not hide the widgets below.
+                this.adminStats = null;
+            } finally {
+                this.adminStatsLoading = false;
+            }
         },
 
         async loadWidget(widget) {
@@ -152,6 +180,8 @@ export function dashboardPage() {
             return widget.error ? '—' : formatNumber(widget.value);
         },
 
+        formatCurrency,
+        formatNumber,
         formatTime,
         statusLabel,
         statusClasses,

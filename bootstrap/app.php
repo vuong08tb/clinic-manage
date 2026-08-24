@@ -10,12 +10,68 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+
+/**
+ * Failures Laravel drops from the log by default. Every one of them is a client mistake that the
+ * API still answers with a 4xx, so leaving them ignored means a rejected request leaves no trace
+ * anywhere: only uncaught server faults ever reach the log.
+ */
+$clientErrors = [
+    ValidationException::class,
+    AuthenticationException::class,
+    AuthorizationException::class,
+    ModelNotFoundException::class,
+    HttpException::class,
+];
+
+/**
+ * Reporting runs before rendering, so a logged status has to be derived from the exception rather
+ * than read off a response. The arms mirror the render callbacks below, which is what keeps the
+ * logged status honest about what the client actually received.
+ */
+$statusFor = static fn (Throwable $exception): int => match (true) {
+    $exception instanceof HttpExceptionInterface => $exception->getStatusCode(),
+    $exception instanceof ValidationException => $exception->status,
+    $exception instanceof AuthenticationException => HttpResponse::HTTP_UNAUTHORIZED,
+    $exception instanceof AuthorizationException => HttpResponse::HTTP_FORBIDDEN,
+    $exception instanceof ModelNotFoundException => HttpResponse::HTTP_NOT_FOUND,
+    default => HttpResponse::HTTP_INTERNAL_SERVER_ERROR,
+};
+
+/**
+ * Identifies the request behind a log entry. A console run has no request worth describing, but
+ * the test runner also reports as console while dispatching real requests, so it is kept out of
+ * that shortcut. LARAVEL_START is defined by the HTTP and console entry points, not by PHPUnit.
+ *
+ * @return array<string, mixed>
+ */
+$requestContext = static function (): array {
+    if (app()->runningInConsole() && ! app()->runningUnitTests()) {
+        return [];
+    }
+
+    $context = [
+        'method' => request()->method(),
+        'url' => request()->fullUrl(),
+        'user_id' => Auth::id(),
+        'ip' => request()->ip(),
+    ];
+
+    if (defined('LARAVEL_START')) {
+        $context['duration_ms'] = round((microtime(true) - LARAVEL_START) * 1000);
+    }
+
+    return $context;
+};
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -34,7 +90,40 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => EnsurePermission::class,
         ]);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
+    ->withExceptions(function (Exceptions $exceptions) use ($clientErrors, $requestContext, $statusFor): void {
+        // Route client failures into the report callback below instead of dropping them.
+        $exceptions->stopIgnoring($clientErrors);
+
+        // The default reporter writes an exception message and nothing about the call that
+        // produced it. This attaches the request to every entry it writes, server faults included.
+        $exceptions->context(fn (Throwable $exception): array => $requestContext());
+
+        // A client error is expected traffic, not an incident: write one compact warning line and
+        // return false to suppress the default report, which would otherwise attach a full stack
+        // trace to every failed validation. Anything 5xx - including an abort(503), which is an
+        // HttpException the list above just un-ignored - falls through to the default reporter and
+        // keeps its trace at error level.
+        $exceptions->report(function (Throwable $exception) use ($requestContext, $statusFor): bool {
+            $status = $statusFor($exception);
+
+            if ($status >= HttpResponse::HTTP_INTERNAL_SERVER_ERROR) {
+                return true;
+            }
+
+            $context = $requestContext() + [
+                'status' => $status,
+                'type' => class_basename($exception),
+            ];
+
+            if ($exception instanceof ValidationException) {
+                $context['errors'] = $exception->errors();
+            }
+
+            Log::warning($exception->getMessage() ?: class_basename($exception), $context);
+
+            return false;
+        });
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
