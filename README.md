@@ -77,44 +77,160 @@ CLIENT
 
 ## 3. Running the Application with Docker
 
-```
-Build images and start services (app & db PostgreSQL 16):
+### Build images and start services
+
+Build images and start the application and PostgreSQL 16:
+
+```bash
 docker compose up -d --build
-Unload Index/php
+```
+
+### Restart the application
+
+```bash
 docker compose restart app
-check list migration
+```
+
+### Check migration status
+
+```bash
 docker compose exec app php artisan migrate:status
-Check docker
+```
+
+### Check running containers
+
+```bash
 docker ps
-Build migrate created
-docker exec clinic_app php artisan migrate
-docker compose exec app php artisan make:model Examination -mf
+```
+
+### Run migrations
+
+```bash
 docker compose exec app php artisan migrate
+```
+
+Alternatively:
+
+```bash
+docker exec clinic_app php artisan migrate
+```
+
+### Create Model + Migration + Factory
+
+Example: create `Examination`:
+
+```bash
+docker compose exec app php artisan make:model Examination -mf
+```
+
+Then run migration:
+
+```bash
+docker compose exec app php artisan migrate
+```
+
+### Rollback migration
+
+Rollback the latest migration:
+
+```bash
 docker compose exec app php artisan migrate:rollback --step=1
-Build migration user current
+```
+
+---
+
+### Create files with the current Ubuntu user
+
+To prevent files from being created as `root` inside the project:
+
+```bash
 docker compose exec \
   --user "$(id -u):$(id -g)" \
   app php artisan make:model Patient --migration --factory
+```
+
+### Change file ownership to Ubuntu user
+
+If files were accidentally created as `root`:
+
+```bash
 sudo chown ubuntu:ubuntu \
   app/Models/Patient.php \
   database/factories/PatientFactory.php \
   database/migrations/2026_08_10_020152_create_patients_table.php
-check ubuntu or root
+```
+
+Or change ownership of the entire project to the current user:
+
+```bash
+sudo chown -R $USER:$USER .
+```
+
+### Check file ownership
+
+```bash
 ls -l \
   app/Models/Appointment.php \
   database/factories/PatientFactory.php \
   database/migrations/2026_08_10_020152_create_patients_table.php
-update root
-sudo chown -R $USER:$USER .
-docker compose exec app php artisan route:list --path=appointments
-docker compose exec app composer dump-autoload --optimize
-docker compose exec app php artisan optimize:clear
-docker compose exec app php artisan route:list
-seed permission missing
-docker compose exec app php artisan db:seed --class=RbacSeeder
+```
 
-seed full demo dataset (specialties, doctors + login accounts for every role, patients,
-medicines, and a sample appointment -> examination -> prescription -> invoice -> payment chain)
+---
+
+### Check Laravel routes
+
+Check only appointment routes:
+
+```bash
+docker compose exec app php artisan route:list --path=appointments
+```
+
+Check all routes:
+
+```bash
+docker compose exec app php artisan route:list
+```
+
+### Rebuild Composer autoload
+
+```bash
+docker compose exec app composer dump-autoload --optimize
+```
+
+### Clear Laravel cache
+
+```bash
+docker compose exec app php artisan optimize:clear
+```
+
+---
+
+### Seed RBAC permissions
+
+If permissions are missing, run:
+
+```bash
+docker compose exec app php artisan db:seed --class=RbacSeeder
+```
+
+### Seed demo data
+
+Seed the complete demo dataset, including:
+
+* Specialties
+* Doctors
+* Login accounts for every role
+* Patients
+* Medicines
+* Sample appointment
+* Examination
+* Prescription
+* Invoice
+* Payment
+
+Run:
+
+```bash
 docker compose exec app php artisan db:seed --class=DemoSeeder
 ```
 
