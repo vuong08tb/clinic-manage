@@ -73,7 +73,9 @@ class PaymentService
                 ]);
             }
 
-            $order = $this->payPalService->createOrder((float) $data['amount']);
+            [$chargedAmount, $chargedCurrency] = $this->convertToPayPalCurrency((float) $data['amount']);
+
+            $order = $this->payPalService->createOrder($chargedAmount, $chargedCurrency);
 
             $payment = $lockedInvoice->payments()->create([
                 'amount' => $data['amount'],
@@ -126,22 +128,40 @@ class PaymentService
             }
 
             $order = $this->payPalService->captureOrder($lockedPayment->provider_order_id);
+
+            // TEMP DEBUG (2026-08-25): log the raw capture response to confirm the
+            // real payment_source shape before trusting resolveActualMethod(). Remove
+            // once confirmed.
+            \Illuminate\Support\Facades\Log::info('PayPal capture response', ['order' => $order]);
+
             $success = data_get($order, 'status') === 'COMPLETED';
             $statusBefore = $lockedPayment->status;
+            $methodBefore = $lockedPayment->method;
 
             if ($success) {
-                $lockedPayment->update([
+                $updates = [
                     'status' => Payment::STATUS_COMPLETED,
                     'provider_capture_id' => data_get($order, 'purchase_units.0.payments.captures.0.id'),
                     'paid_at' => now(),
-                ]);
+                ];
+
+                // Reflect what the buyer actually paid with on PayPal's page, which can
+                // differ from the method picked before redirecting (e.g. "PayPal" was
+                // selected here, but the buyer chose to pay with a card over there).
+                $actualMethod = $this->resolveActualMethod($order);
+
+                if ($actualMethod !== null) {
+                    $updates['method'] = $actualMethod;
+                }
+
+                $lockedPayment->update($updates);
 
                 $this->logger->logChange(
                     ActivityLogSubject::PAYMENT,
                     (int) $lockedPayment->getKey(),
                     ActivityLogAction::CAPTURED,
-                    ['status' => $statusBefore],
-                    ['status' => Payment::STATUS_COMPLETED],
+                    ['status' => $statusBefore, 'method' => $methodBefore],
+                    ['status' => Payment::STATUS_COMPLETED, 'method' => $lockedPayment->method],
                     ['provider_capture_id' => $lockedPayment->provider_capture_id],
                 );
 
@@ -172,5 +192,48 @@ class PaymentService
     private function extractApprovalUrl(array $order): ?string
     {
         return collect($order['links'] ?? [])->firstWhere('rel', 'approve')['href'] ?? null;
+    }
+
+    /**
+     * Determine which method the buyer actually paid with, from the funding
+     * source PayPal reports on the captured Order. Returns null when the
+     * response doesn't identify one, so the caller can leave method unchanged.
+     *
+     * @param  array<string, mixed>  $order
+     */
+    private function resolveActualMethod(array $order): ?string
+    {
+        if (data_get($order, 'payment_source.card') !== null) {
+            return Payment::METHOD_VISA;
+        }
+
+        if (data_get($order, 'payment_source.paypal') !== null) {
+            return Payment::METHOD_PAYPAL;
+        }
+
+        return null;
+    }
+
+    /**
+     * Convert a VND invoice amount into the currency PayPal actually charges.
+     *
+     * PayPal does not support VND as a transaction currency (see docs/visafix.md
+     * §6), so orders must be created in config('paypal.currency') instead. Only used
+     * to build the PayPal Order request — the converted figure is not persisted, so
+     * the invoice/payment amount on record always stays in VND.
+     *
+     * @return array{0: float, 1: string}
+     */
+    private function convertToPayPalCurrency(float $amountVnd): array
+    {
+        $currency = (string) config('paypal.currency');
+
+        if ($currency === 'VND') {
+            return [$amountVnd, $currency];
+        }
+
+        $rate = (float) config('paypal.exchange_rate_vnd');
+
+        return [round($amountVnd / $rate, 2), $currency];
     }
 }

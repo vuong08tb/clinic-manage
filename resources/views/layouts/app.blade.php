@@ -7,6 +7,8 @@
 
         <title>@yield('title', 'Dashboard') · {{ config('app.name', 'Clinic Management') }}</title>
 
+        <meta name="paypal-mode" content="{{ config('paypal.mode') }}">
+
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="min-h-screen bg-slate-50" x-data x-init="$store.auth.bootstrap()">

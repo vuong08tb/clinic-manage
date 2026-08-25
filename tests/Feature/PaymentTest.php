@@ -88,6 +88,44 @@ class PaymentTest extends TestCase
     }
 
     /**
+     * Verify the VND invoice amount is converted to PayPal's currency before the
+     * Order is created, since PayPal does not support VND as a transaction currency.
+     */
+    public function test_payment_amount_is_converted_to_paypal_currency(): void
+    {
+        $invoice = Invoice::factory()->create(['total' => 200000, 'status' => Invoice::STATUS_UNPAID]);
+        $this->fakePayPalSuccess('ORDER-123');
+
+        $rate = (float) config('paypal.exchange_rate_vnd');
+        $expectedCharged = round(100000 / $rate, 2);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson("/api/invoices/{$invoice->id}/payments", [
+            'amount' => 100000,
+            'method' => 'paypal',
+        ])->assertCreated()
+            ->assertJson([
+                'data' => [
+                    // The invoice/payment amount on record always stays in VND —
+                    // conversion only affects what's sent to PayPal, not what's stored.
+                    'amount' => '100000.00',
+                ],
+            ]);
+
+        Http::assertSent(
+            fn ($request): bool => str_contains($request->url(), '/v2/checkout/orders')
+                && data_get($request->data(), 'purchase_units.0.amount.currency_code') === 'USD'
+                && data_get($request->data(), 'purchase_units.0.amount.value') === number_format($expectedCharged, 2, '.', ''),
+        );
+
+        $this->assertDatabaseHas('payments', [
+            'invoice_id' => $invoice->id,
+            'amount' => 100000,
+        ]);
+    }
+
+    /**
      * Verify an amount exceeding the invoice remaining balance is rejected without calling PayPal.
      */
     public function test_amount_exceeding_remaining_balance_is_rejected(): void
@@ -309,6 +347,55 @@ class PaymentTest extends TestCase
         $this->assertDatabaseHas('invoices', [
             'id' => $invoice->id,
             'status' => Invoice::STATUS_PAID,
+        ]);
+    }
+
+    /**
+     * Verify capture reconciles the payment method to what PayPal reports the buyer
+     * actually paid with, since the buyer can switch funding sources on PayPal's page.
+     */
+    public function test_capture_updates_method_to_match_the_actual_paypal_funding_source(): void
+    {
+        $invoice = Invoice::factory()->create(['total' => 100000, 'status' => Invoice::STATUS_UNPAID]);
+        $payment = Payment::factory()->create([
+            'invoice_id' => $invoice->id,
+            'amount' => 100000,
+            'method' => Payment::METHOD_PAYPAL,
+            'status' => Payment::STATUS_PENDING,
+            'provider_order_id' => 'ORDER-123',
+        ]);
+
+        Http::fake([
+            'api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response([
+                'access_token' => 'FAKE_ACCESS_TOKEN',
+            ], 200),
+            'api-m.sandbox.paypal.com/v2/checkout/orders/ORDER-123/capture' => Http::response([
+                'status' => 'COMPLETED',
+                'payment_source' => [
+                    'card' => ['brand' => 'VISA', 'last_digits' => '4496'],
+                ],
+                'purchase_units' => [[
+                    'payments' => [
+                        'captures' => [
+                            ['id' => 'CAPTURE-1', 'status' => 'COMPLETED'],
+                        ],
+                    ],
+                ]],
+            ], 201),
+        ]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson("/api/payments/{$payment->id}/capture")
+            ->assertOk()
+            ->assertJson([
+                'data' => ['method' => 'visa'],
+            ]);
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'method' => Payment::METHOD_VISA,
+            'status' => Payment::STATUS_COMPLETED,
         ]);
     }
 
@@ -576,6 +663,55 @@ class PaymentTest extends TestCase
     public function test_unauthenticated_list_request_is_rejected(): void
     {
         $this->getJson('/api/payments')->assertUnauthorized();
+    }
+
+    /**
+     * Verify a cashier can retrieve a PayPal client token for Card Fields init.
+     */
+    public function test_cashier_can_retrieve_paypal_client_token(): void
+    {
+        Http::fake([
+            'api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response([
+                'access_token' => 'FAKE_JWT_CLIENT_TOKEN',
+            ], 200),
+        ]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->getJson('/api/payments/paypal/client-token')
+            ->assertOk()
+            ->assertJsonPath('data.client_token', 'FAKE_JWT_CLIENT_TOKEN');
+
+        // The Web SDK v6 createInstance() requires a JWT clientToken, which only the
+        // response_type=client_token grant returns (the plain client_credentials
+        // grant used elsewhere returns a REST API Bearer token, not a JWT). Guard
+        // against silently regressing to the plain grant.
+        Http::assertSent(
+            fn ($request): bool => str_contains($request->url(), '/v1/oauth2/token')
+                && str_contains($request->body(), 'response_type=client_token'),
+        );
+    }
+
+    /**
+     * Verify roles without payment-create permission cannot retrieve a client token.
+     */
+    public function test_roles_without_permission_cannot_retrieve_client_token(): void
+    {
+        foreach (['DOCTOR', 'RECEPTIONIST', 'PHARMACIST'] as $role) {
+            Sanctum::actingAs($this->createUser($role));
+
+            $this->getJson('/api/payments/paypal/client-token')
+                ->assertForbidden()
+                ->assertJsonPath('message', 'Missing permission: PAYMENTS.CREATE');
+        }
+    }
+
+    /**
+     * Verify unauthenticated requests to the client token endpoint are rejected.
+     */
+    public function test_unauthenticated_client_token_request_is_rejected(): void
+    {
+        $this->getJson('/api/payments/paypal/client-token')->assertUnauthorized();
     }
 
     /**

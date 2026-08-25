@@ -28,6 +28,7 @@ return [
         'removeItem' => 'REMOVEITEM',
         'adjustStock' => 'ADJUSTSTOCK',
         'capture' => 'CAPTURE',
+        'clientToken' => 'CREATE',
     ],
 
     'overrides' => [

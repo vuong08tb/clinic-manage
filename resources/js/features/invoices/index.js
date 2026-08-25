@@ -27,7 +27,12 @@ import {
     emptyInvoiceForm,
     invoiceToForm,
 } from "./invoice-form";
-import { createPayment, getPayments } from "../payments/payment-api";
+import {
+    capturePayment,
+    createPayment,
+    getPayments,
+    getPayPalClientToken,
+} from "../payments/payment-api";
 
 export function invoiceIndexPage() {
     return {
@@ -73,6 +78,15 @@ export function invoiceIndexPage() {
         paymentForm: { method: "paypal", amount: "", note: "" },
         paymentSubmitting: false,
         paymentMessage: "",
+
+        // --- Visa card payment (PayPal Web SDK v6 Card Fields, embedded in-page) ---
+        visaModalOpen: false,
+        visaSdkState: "idle", // idle | loading | ready | error
+        visaSubmitting: false,
+        visaMessage: "",
+        _visaSession: null,
+        _visaPaymentId: null,
+        _visaSdkPromise: null,
 
         cancelTarget: null,
         cancelling: false,
@@ -563,17 +577,9 @@ export function invoiceIndexPage() {
                 return;
             }
 
-            const amount = Number(this.paymentForm.amount);
+            const amount = this._validatePaymentAmount();
 
-            if (!(amount > 0)) {
-                this.paymentMessage = "Vui lòng nhập số tiền lớn hơn 0.";
-
-                return;
-            }
-
-            if (amount > this.remainingBalance) {
-                this.paymentMessage = `Số tiền vượt quá số dư còn lại (${formatCurrency(this.remainingBalance)}).`;
-
+            if (amount === null) {
                 return;
             }
 
@@ -610,6 +616,186 @@ export function invoiceIndexPage() {
                           error.message)
                         : "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.";
                 this.paymentSubmitting = false;
+            }
+        },
+
+        // --- Visa card payment (Card Fields modal, no redirect) ---
+
+        _validatePaymentAmount() {
+            const amount = Number(this.paymentForm.amount);
+
+            if (!(amount > 0)) {
+                this.paymentMessage = "Vui lòng nhập số tiền lớn hơn 0.";
+
+                return null;
+            }
+
+            if (amount > this.remainingBalance) {
+                this.paymentMessage = `Số tiền vượt quá số dư còn lại (${formatCurrency(this.remainingBalance)}).`;
+
+                return null;
+            }
+
+            return amount;
+        },
+
+        async openVisaModal() {
+            if (!this.detail?.id || this._validatePaymentAmount() === null) {
+                return;
+            }
+
+            this.visaModalOpen = true;
+            this.visaMessage = "";
+            this.visaSdkState = "loading";
+
+            try {
+                await this.loadPayPalWebSdk();
+                await this.mountVisaCardFields();
+                this.visaSdkState = "ready";
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error("Visa card fields failed to initialize:", error);
+
+                this.visaSdkState = "error";
+
+                const detail =
+                    error instanceof ApiError
+                        ? error.message
+                        : (error?.message ?? String(error));
+
+                this.visaMessage = `Không thể tải form nhập thẻ. Bạn có thể dùng PayPal để thanh toán. (Chi tiết: ${detail})`;
+            }
+        },
+
+        closeVisaModal() {
+            this.visaModalOpen = false;
+            this.visaMessage = "";
+            this._visaSession = null;
+            this._visaPaymentId = null;
+        },
+
+        loadPayPalWebSdk() {
+            if (window.paypal?.createInstance) {
+                return Promise.resolve();
+            }
+
+            if (this._visaSdkPromise) {
+                return this._visaSdkPromise;
+            }
+
+            // Mirrors PayPalService::baseUrl(): "sandbox" is the only value that
+            // resolves to the sandbox domain, anything else means production.
+            const mode =
+                document.querySelector('meta[name="paypal-mode"]')?.content ===
+                "sandbox"
+                    ? "www.sandbox.paypal.com"
+                    : "www.paypal.com";
+
+            this._visaSdkPromise = new Promise((resolve, reject) => {
+                const script = document.createElement("script");
+                // The SDK validates the domain it was loaded from at runtime and
+                // rejects a bare "sandbox.paypal.com" (missing the "www." subdomain).
+                script.src = `https://${mode}/web-sdk/v6/core`;
+                script.async = true;
+                script.onload = () => resolve();
+                script.onerror = () =>
+                    reject(new Error("Failed to load PayPal Web SDK."));
+                document.head.appendChild(script);
+            });
+
+            return this._visaSdkPromise;
+        },
+
+        async mountVisaCardFields() {
+            const { data } = await getPayPalClientToken();
+
+            const sdk = await window.paypal.createInstance({
+                clientToken: data.client_token,
+                components: ["card-fields"],
+            });
+
+            const eligibility = await sdk.findEligibleMethods();
+
+            if (!eligibility.isEligible("advanced_cards")) {
+                throw new Error("Card Fields not eligible.");
+            }
+
+            const cardSession = sdk.createCardFieldsOneTimePaymentSession();
+
+            const mounts = [
+                ["number", "visa-card-number-field", "Số thẻ"],
+                ["expiry", "visa-expiration-date-field", "MM/YY"],
+                ["cvv", "visa-cvv-field", "CVV"],
+            ];
+
+            for (const [type, containerId, placeholder] of mounts) {
+                const container = document.getElementById(containerId);
+                const field = cardSession.createCardFieldsComponent({
+                    type,
+                    placeholder,
+                });
+
+                // createCardFieldsComponent() returns the field's DOM node
+                // directly — it must be appended, not rendered via a method.
+                container.replaceChildren();
+                container.appendChild(field);
+            }
+
+            this._visaSession = cardSession;
+        },
+
+        async submitVisaCard() {
+            if (!this._visaSession || this.visaSubmitting) {
+                return;
+            }
+
+            const amount = this._validatePaymentAmount();
+
+            if (amount === null) {
+                return;
+            }
+
+            this.visaSubmitting = true;
+            this.visaMessage = "";
+
+            try {
+                const note = this.paymentForm.note.trim();
+
+                const response = await createPayment(this.detail.id, {
+                    amount,
+                    method: "visa",
+                    note: note === "" ? null : note,
+                });
+
+                this._visaPaymentId = response.data.id;
+
+                const { state, data } = await this._visaSession.submit(
+                    response.data.provider_order_id,
+                    {},
+                );
+
+                if (state === "succeeded") {
+                    await capturePayment(this._visaPaymentId);
+                    this.closeVisaModal();
+                    await this.reloadDetail();
+                    this.$store.ui.notify(
+                        "Thanh toán bằng thẻ Visa thành công.",
+                        "success",
+                    );
+                } else if (state === "canceled") {
+                    this.visaMessage = "Bạn đã huỷ xác thực thẻ. Vui lòng thử lại.";
+                } else {
+                    this.visaMessage =
+                        data?.message ??
+                        "Thẻ bị từ chối hoặc thông tin không hợp lệ. Vui lòng thử lại.";
+                }
+            } catch (error) {
+                this.visaMessage =
+                    error instanceof ApiError
+                        ? error.message
+                        : "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.";
+            } finally {
+                this.visaSubmitting = false;
             }
         },
 
