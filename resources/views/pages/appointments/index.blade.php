@@ -393,6 +393,11 @@
                             </li>
                         </template>
                     </ul>
+
+                    <p x-show="patientQuery.trim() !== '' && patientResults.length === 0"
+                        class="mt-2 text-xs text-slate-400">
+                        Không tìm thấy bệnh nhân phù hợp.
+                    </p>
                 </div>
 
                 <p x-cloak x-show="fieldError('patient_id')" class="mt-1.5 text-sm text-rose-600"

@@ -132,6 +132,33 @@ export function invoiceIndexPage() {
             );
         },
 
+        // The Visa card charge always goes through PayPal in paypal.currency
+        // (VND isn't a supported transaction currency there — see
+        // PaymentService::convertToPayPalCurrency()), so the buyer's card
+        // statement shows this converted figure, not the VND amount above.
+        get visaChargeEquivalent() {
+            const currency =
+                document.querySelector('meta[name="paypal-currency"]')
+                    ?.content ?? "";
+            const rate = Number(
+                document.querySelector(
+                    'meta[name="paypal-exchange-rate-vnd"]',
+                )?.content ?? 0,
+            );
+            const amount = Number(this.paymentForm.amount);
+
+            if (currency === "" || currency === "VND" || !rate || !(amount > 0)) {
+                return "";
+            }
+
+            const converted = Math.round((amount / rate) * 100) / 100;
+
+            return new Intl.NumberFormat("en-US", {
+                style: "currency",
+                currency,
+            }).format(converted);
+        },
+
         async init() {
             const user = await this.$store.auth.bootstrap();
 

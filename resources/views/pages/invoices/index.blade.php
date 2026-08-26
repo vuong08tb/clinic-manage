@@ -339,7 +339,8 @@
 
     {{-- Visa card payment modal (PayPal Card Fields, embedded in-page) --}}
     <x-ui.modal show="visaModalOpen" close="closeVisaModal()" id="visa-payment-modal" z="60" size="sm"
-        title="Thanh toán bằng thẻ Visa" subtitle-expr="`Số tiền: ${formatCurrency(Number(paymentForm.amount))}`">
+        title="Thanh toán bằng thẻ Visa"
+        subtitle-expr="`Số tiền: ${formatCurrency(Number(paymentForm.amount))}` + (visaChargeEquivalent ? ` (≈ ${visaChargeEquivalent})` : '')">
         <div class="space-y-4">
             <p x-cloak x-show="visaMessage"
                 class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700" role="alert"
@@ -436,6 +437,11 @@
                                 </li>
                             </template>
                         </ul>
+
+                        <p x-show="examinationPickerPatientQuery.trim() !== '' && examinationPickerPatientResults.length === 0"
+                            class="mt-2 text-xs text-slate-400">
+                            Không tìm thấy bệnh nhân phù hợp.
+                        </p>
                     </div>
 
                     <div x-show="examinationPickerLoading" class="text-sm text-slate-500">Đang tải phiếu khám…</div>
