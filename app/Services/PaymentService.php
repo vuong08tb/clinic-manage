@@ -129,11 +129,6 @@ class PaymentService
 
             $order = $this->payPalService->captureOrder($lockedPayment->provider_order_id);
 
-            // TEMP DEBUG (2026-08-25): log the raw capture response to confirm the
-            // real payment_source shape before trusting resolveActualMethod(). Remove
-            // once confirmed.
-            \Illuminate\Support\Facades\Log::info('PayPal capture response', ['order' => $order]);
-
             $success = data_get($order, 'status') === 'COMPLETED';
             $statusBefore = $lockedPayment->status;
             $methodBefore = $lockedPayment->method;

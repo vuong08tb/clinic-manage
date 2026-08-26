@@ -640,6 +640,10 @@ export function invoiceIndexPage() {
         },
 
         async openVisaModal() {
+            if (this.visaModalOpen) {
+                return;
+            }
+
             if (!this.detail?.id || this._validatePaymentAmount() === null) {
                 return;
             }
@@ -783,7 +787,8 @@ export function invoiceIndexPage() {
                         "success",
                     );
                 } else if (state === "canceled") {
-                    this.visaMessage = "Bạn đã huỷ xác thực thẻ. Vui lòng thử lại.";
+                    this.visaMessage =
+                        "Bạn đã huỷ xác thực thẻ. Vui lòng thử lại.";
                 } else {
                     this.visaMessage =
                         data?.message ??

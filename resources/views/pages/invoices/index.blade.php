@@ -114,7 +114,8 @@
                                     x-text="statusLabel(invoice.status)"></span>
                             </td>
                             <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600"
-                                x-text="formatDate(invoice.issued_at, { dateStyle: 'medium' })"></td>
+                                x-text="formatDate(invoice.issued_at, { dateStyle: 'medium', timeStyle: 'short' })">
+                            </td>
                             <td class="whitespace-nowrap px-5 py-4 text-right">
                                 <div class="inline-flex items-center gap-2">
                                     <x-ui.row-action label="Xem" icon="eye" x-show="canView"
@@ -257,8 +258,9 @@
                                             x-text="statusLabel(payment.status)"></span>
                                     </td>
                                     <td class="px-4 py-2 text-slate-500"
-                                        x-text="formatDate(payment.paid_at ?? payment.created_at, { dateStyle: 'short' })">
+                                        x-text="formatDate(payment.paid_at, { dateStyle: 'medium', timeStyle: 'short' })">
                                     </td>
+
                                 </tr>
                             </template>
                         </tbody>
@@ -289,8 +291,8 @@
                             x-bind:placeholder="remainingBalance">
                     </div>
                     <div class="flex items-end">
-                        <x-ui.button type="button" x-show="paymentForm.method === 'paypal'"
-                            x-on:click="submitPayment()" x-bind:disabled="paymentSubmitting" class="w-full">
+                        <x-ui.button type="button" x-show="paymentForm.method === 'paypal'" x-on:click="submitPayment()"
+                            x-bind:disabled="paymentSubmitting" class="w-full">
                             <span x-show="paymentSubmitting"
                                 class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
                                 aria-hidden="true"></span>
@@ -298,8 +300,8 @@
                             <x-ui.icon name="arrow-right" size="h-4 w-4" />
                         </x-ui.button>
 
-                        <x-ui.button type="button" x-show="paymentForm.method === 'visa'"
-                            x-on:click="openVisaModal()" class="w-full">
+                        <x-ui.button type="button" x-show="paymentForm.method === 'visa'" x-on:click="openVisaModal()"
+                            class="w-full">
                             Nhập thẻ Visa
                             <x-ui.icon name="arrow-right" size="h-4 w-4" />
                         </x-ui.button>
@@ -337,21 +339,21 @@
 
     {{-- Visa card payment modal (PayPal Card Fields, embedded in-page) --}}
     <x-ui.modal show="visaModalOpen" close="closeVisaModal()" id="visa-payment-modal" z="60" size="sm"
-        title="Thanh toán bằng thẻ Visa"
-        subtitle-expr="`Số tiền: ${formatCurrency(Number(paymentForm.amount))}`">
+        title="Thanh toán bằng thẻ Visa" subtitle-expr="`Số tiền: ${formatCurrency(Number(paymentForm.amount))}`">
         <div class="space-y-4">
             <p x-cloak x-show="visaMessage"
                 class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700" role="alert"
                 x-text="visaMessage"></p>
 
-            <div x-show="visaSdkState === 'loading'" class="flex items-center justify-center gap-2 py-6 text-sm text-slate-500"
-                role="status" aria-label="Đang tải form nhập thẻ">
-                <span
-                    class="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600"></span>
+            <div x-show="visaSdkState === 'loading'"
+                class="flex items-center justify-center gap-2 py-6 text-sm text-slate-500" role="status"
+                aria-label="Đang tải form nhập thẻ">
+                <span class="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600"></span>
                 Đang tải form nhập thẻ…
             </div>
 
-            <div x-cloak x-show="visaSdkState === 'error'" class="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+            <div x-cloak x-show="visaSdkState === 'error'"
+                class="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
                 <p>Không thể tải form nhập thẻ Visa ngay lúc này. Bạn có thể thanh toán qua PayPal thay thế.</p>
                 <x-ui.button type="button" variant="secondary"
                     x-on:click="closeVisaModal(); paymentForm.method = 'paypal'; submitPayment()">
