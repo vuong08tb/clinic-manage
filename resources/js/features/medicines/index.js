@@ -401,6 +401,8 @@ export function medicineIndexPage() {
                 return;
             }
 
+            const adjustedMedicineId = this.stockTarget.id;
+
             if (!(Number(this.stockForm.amount) > 0)) {
                 this.stockMessage = "Vui lòng nhập số lượng lớn hơn 0.";
 
@@ -416,6 +418,7 @@ export function medicineIndexPage() {
             this.stockSubmitting = true;
             this.stockErrors = {};
             this.stockMessage = "";
+            let adjusted = false;
 
             try {
                 await adjustMedicineStock(
@@ -423,18 +426,12 @@ export function medicineIndexPage() {
                     stockAdjustPayload(this.stockForm),
                 );
 
+                adjusted = true;
+
                 this.$store.ui.notify(
                     "Điều chỉnh tồn kho thành công.",
                     "success",
                 );
-
-                this.closeStockModal();
-
-                if (this.detailOpen && this.detail?.id === this.stockTarget?.id) {
-                    await this.openDetailModal(this.detail);
-                }
-
-                await this.loadMedicines();
             } catch (error) {
                 if (error instanceof ApiError) {
                     this.stockErrors = error.errors ?? {};
@@ -449,6 +446,21 @@ export function medicineIndexPage() {
             } finally {
                 this.stockSubmitting = false;
             }
+
+            if (!adjusted) {
+                return;
+            }
+
+            // Closing is blocked while a request is in flight. Run it only
+            // after the busy state has been released so the old amount cannot
+            // remain in an open form and be submitted a second time.
+            this.closeStockModal();
+
+            if (this.detailOpen && this.detail?.id === adjustedMedicineId) {
+                await this.openDetailModal({ id: adjustedMedicineId });
+            }
+
+            await this.loadMedicines();
         },
 
         stockFieldError(field) {

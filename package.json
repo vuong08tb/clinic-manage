@@ -4,7 +4,8 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "test:frontend": "node --no-warnings --experimental-loader ./tests/frontend/extensionless-loader.js --test tests/frontend/*.test.js"
     },
     "dependencies": {
         "alpinejs": "^3.15.12"
