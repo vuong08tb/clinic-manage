@@ -1,4 +1,4 @@
-import { getPayments } from "./payment-api";
+import { cancelPayment, getPayments } from "./payment-api";
 
 export function paymentCancelPage() {
     return {
@@ -28,6 +28,18 @@ export function paymentCancelPage() {
                 });
 
                 this.payment = (response.data ?? [])[0] ?? null;
+
+                if (this.payment?.status === "pending") {
+                    try {
+                        const cancelled = await cancelPayment(this.payment.id);
+
+                        this.payment = cancelled.data ?? this.payment;
+                    } catch {
+                        // Best-effort: the page's messaging doesn't depend on
+                        // the server-side status, so a failed cancel call
+                        // (e.g. missing permission) shouldn't block rendering.
+                    }
+                }
             } catch {
                 this.payment = null;
             } finally {

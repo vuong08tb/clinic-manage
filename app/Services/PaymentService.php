@@ -60,10 +60,10 @@ class PaymentService
                 ]);
             }
 
-            $completedTotal = (float) $lockedInvoice->payments()
-                ->where('status', Payment::STATUS_COMPLETED)
+            $committedTotal = (float) $lockedInvoice->payments()
+                ->whereIn('status', [Payment::STATUS_COMPLETED, Payment::STATUS_PENDING])
                 ->sum('amount');
-            $remaining = (float) $lockedInvoice->total - $completedTotal;
+            $remaining = (float) $lockedInvoice->total - $committedTotal;
 
             if ((float) $data['amount'] > $remaining) {
                 throw ValidationException::withMessages([
@@ -176,6 +176,43 @@ class PaymentService
             }
 
             return $lockedPayment->refresh();
+        });
+    }
+
+    /**
+     * Cancel a pending payment (e.g. the buyer backed out of PayPal checkout).
+     */
+    public function cancel(Payment $payment): Payment
+    {
+        return DB::transaction(function () use ($payment): Payment {
+            $lockedPayment = Payment::query()->lockForUpdate()->findOrFail($payment->getKey());
+
+            // Cancellation can be retried by design: PayPal can redirect the customer
+            // back more than once. Report the settled payment instead of failing a
+            // request whose outcome already happened.
+            if ($lockedPayment->status === Payment::STATUS_CANCELLED) {
+                return $lockedPayment;
+            }
+
+            if ($lockedPayment->status !== Payment::STATUS_PENDING) {
+                throw ValidationException::withMessages([
+                    'payment' => [PaymentMessage::PAYMENT_CANNOT_BE_CANCELLED],
+                ]);
+            }
+
+            $statusBefore = $lockedPayment->status;
+
+            $lockedPayment->update(['status' => Payment::STATUS_CANCELLED]);
+
+            $this->logger->logChange(
+                ActivityLogSubject::PAYMENT,
+                (int) $lockedPayment->getKey(),
+                ActivityLogAction::CANCELLED,
+                ['status' => $statusBefore],
+                ['status' => Payment::STATUS_CANCELLED],
+            );
+
+            return $lockedPayment;
         });
     }
 

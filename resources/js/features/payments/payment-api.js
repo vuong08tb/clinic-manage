@@ -30,6 +30,12 @@ export function capturePayment(paymentId) {
     });
 }
 
+export function cancelPayment(paymentId) {
+    return apiRequest(`/payments/${paymentId}/cancel`, {
+        method: "POST",
+    });
+}
+
 export function getPayPalClientToken() {
     return apiRequest("/payments/paypal/client-token");
 }

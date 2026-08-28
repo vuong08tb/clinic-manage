@@ -72,6 +72,20 @@ class PaymentController extends Controller
     }
 
     /**
+     * Cancel a pending payment (e.g. the buyer backed out of PayPal checkout).
+     */
+    public function cancel(Payment $payment): JsonResponse
+    {
+        $cancelled = $this->service->cancel($payment);
+
+        return ApiResponse::resource(
+            new PaymentResource($cancelled),
+            PaymentMessage::CANCELLED,
+            Response::HTTP_OK,
+        );
+    }
+
+    /**
      * Issue a browser-safe client token used to initialize the PayPal Web SDK
      * (Card Fields) on the frontend. client_secret never leaves the server.
      */

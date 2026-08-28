@@ -726,6 +726,15 @@ class PrescriptionTest extends TestCase
     public function test_show_returns_prescription_with_context(): void
     {
         $prescription = Prescription::factory()->create();
+        $medicine = Medicine::factory()->create([
+            'stock' => 300,
+            'is_active' => true,
+        ]);
+        PrescriptionItem::factory()->create([
+            'prescription_id' => $prescription->id,
+            'medicine_id' => $medicine->id,
+            'quantity' => 10,
+        ]);
 
         Sanctum::actingAs($prescription->doctor->user);
 
@@ -733,7 +742,10 @@ class PrescriptionTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.id', $prescription->id)
             ->assertJsonPath('data.doctor.id', $prescription->doctor_id)
-            ->assertJsonPath('data.examination.id', $prescription->examination_id);
+            ->assertJsonPath('data.examination.id', $prescription->examination_id)
+            ->assertJsonPath('data.items.0.quantity', 10)
+            ->assertJsonPath('data.items.0.medicine.id', $medicine->id)
+            ->assertJsonPath('data.items.0.medicine.stock', 300);
     }
 
     /**

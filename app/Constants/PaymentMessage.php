@@ -15,6 +15,8 @@ final class PaymentMessage
 
     public const CAPTURE_FAILED = 'Payment capture failed';
 
+    public const CANCELLED = 'Payment cancelled';
+
     public const CLIENT_TOKEN_RETRIEVED = 'PayPal client token retrieved';
 
     public const INVOICE_NOT_PAYABLE = 'Payments can only be created while the invoice is unpaid.';
@@ -22,6 +24,8 @@ final class PaymentMessage
     public const AMOUNT_EXCEEDS_REMAINING = 'Amount exceeds the invoice remaining balance of :remaining.';
 
     public const PAYMENT_CANNOT_BE_CAPTURED = 'Only pending payments can be captured.';
+
+    public const PAYMENT_CANNOT_BE_CANCELLED = 'Only pending payments can be cancelled.';
 
     public const CAPTURE_WOULD_EXCEED_TOTAL = 'Capturing this payment would exceed the invoice total.';
 

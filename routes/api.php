@@ -39,6 +39,7 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::get('/payments/paypal/client-token', [PaymentController::class, 'clientToken']);
     Route::post('/invoices/{invoice}/payments', [PaymentController::class, 'store']);
     Route::post('/payments/{payment}/capture', [PaymentController::class, 'capture']);
+    Route::post('/payments/{payment}/cancel', [PaymentController::class, 'cancel']);
     Route::patch('/medicines/{medicine}/stock', [MedicineController::class, 'adjustStock']);
     Route::apiResource('medicines', MedicineController::class);
     Route::apiResource('patients', PatientController::class);

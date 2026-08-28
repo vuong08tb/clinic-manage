@@ -170,6 +170,32 @@ class PaymentTest extends TestCase
     }
 
     /**
+     * Verify the remaining balance also subtracts pending payments, blocking a second
+     * checkout for the same balance while a first one is still outstanding.
+     */
+    public function test_amount_exceeding_remaining_balance_including_pending_payment_is_rejected(): void
+    {
+        $invoice = Invoice::factory()->create(['total' => 200000, 'status' => Invoice::STATUS_UNPAID]);
+        Payment::factory()->create([
+            'invoice_id' => $invoice->id,
+            'amount' => 200000,
+            'status' => Payment::STATUS_PENDING,
+        ]);
+        $this->fakePayPalSuccess();
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson("/api/invoices/{$invoice->id}/payments", [
+            'amount' => 200000,
+            'method' => 'paypal',
+        ])->assertStatus(422)
+            ->assertJsonPath('errors.amount.0', 'Amount exceeds the invoice remaining balance of 0.00.');
+
+        $this->assertDatabaseCount('payments', 1);
+        Http::assertNothingSent();
+    }
+
+    /**
      * Verify payments cannot be created for an invoice that is not unpaid.
      */
     public function test_payment_rejected_when_invoice_is_not_unpaid(): void
@@ -584,6 +610,107 @@ class PaymentTest extends TestCase
         $this->postJson("/api/payments/{$payment->id}/capture")->assertStatus(500);
 
         $this->assertDatabaseHas('payments', ['id' => $payment->id, 'status' => Payment::STATUS_PENDING]);
+    }
+
+    /**
+     * Verify a cashier can cancel a pending payment (e.g. buyer backed out of PayPal checkout).
+     */
+    public function test_cashier_can_cancel_a_pending_payment(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
+        $payment = Payment::factory()->create([
+            'invoice_id' => $invoice->id,
+            'status' => Payment::STATUS_PENDING,
+            'provider_order_id' => 'ORDER-CANCEL-1',
+        ]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson("/api/payments/{$payment->id}/cancel")
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'message' => 'Payment cancelled',
+                'data' => ['status' => 'cancelled'],
+            ]);
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => Payment::STATUS_CANCELLED,
+        ]);
+    }
+
+    /**
+     * Verify re-cancelling an already cancelled payment reports the existing result instead of
+     * failing: PayPal may redirect the customer back to the cancel page more than once.
+     */
+    public function test_cancel_is_idempotent_for_an_already_cancelled_payment(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
+        $payment = Payment::factory()->create([
+            'invoice_id' => $invoice->id,
+            'status' => Payment::STATUS_CANCELLED,
+        ]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson("/api/payments/{$payment->id}/cancel")
+            ->assertOk()
+            ->assertJsonPath('data.status', Payment::STATUS_CANCELLED);
+    }
+
+    /**
+     * Verify a payment that is neither pending nor cancelled cannot be cancelled.
+     */
+    public function test_cancel_rejected_when_payment_is_not_pending(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
+        $payment = Payment::factory()->completed()->create(['invoice_id' => $invoice->id]);
+
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson("/api/payments/{$payment->id}/cancel")
+            ->assertStatus(422)
+            ->assertJsonPath('errors.payment.0', 'Only pending payments can be cancelled.');
+
+        $this->assertDatabaseHas('payments', ['id' => $payment->id, 'status' => Payment::STATUS_COMPLETED]);
+    }
+
+    /**
+     * Verify cancelling a missing payment returns 404.
+     */
+    public function test_cancel_for_missing_payment_returns_not_found(): void
+    {
+        Sanctum::actingAs($this->createUser('CASHIER'));
+
+        $this->postJson('/api/payments/999999/cancel')->assertNotFound();
+    }
+
+    /**
+     * Verify roles without PAYMENTS.CANCEL are forbidden from cancelling payments.
+     */
+    public function test_roles_without_permission_cannot_cancel_payments(): void
+    {
+        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
+        $payment = Payment::factory()->create(['invoice_id' => $invoice->id, 'status' => Payment::STATUS_PENDING]);
+
+        foreach (['DOCTOR', 'RECEPTIONIST', 'PHARMACIST'] as $role) {
+            Sanctum::actingAs($this->createUser($role));
+
+            $this->postJson("/api/payments/{$payment->id}/cancel")
+                ->assertForbidden()
+                ->assertJsonPath('message', 'Missing permission: PAYMENTS.CANCEL');
+        }
+    }
+
+    /**
+     * Verify unauthenticated cancel requests are rejected.
+     */
+    public function test_unauthenticated_cancel_request_is_rejected(): void
+    {
+        $payment = Payment::factory()->create(['status' => Payment::STATUS_PENDING]);
+
+        $this->postJson("/api/payments/{$payment->id}/cancel")->assertUnauthorized();
     }
 
     /**

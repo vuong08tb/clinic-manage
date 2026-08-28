@@ -29,6 +29,7 @@ class PrescriptionItemResource extends JsonResource
                 'name' => $this->medicine->name,
                 'unit' => $this->medicine->unit,
                 'price' => $this->medicine->price,
+                'stock' => $this->medicine->stock,
                 'is_active' => $this->medicine->is_active,
             ]),
         ];
