@@ -35,6 +35,13 @@ export function addPrescriptionItem(prescriptionId, payload) {
     });
 }
 
+export function updatePrescription(prescriptionId, payload) {
+    return apiRequest(`/prescriptions/${prescriptionId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
 export function updatePrescriptionItem(prescriptionId, itemId, payload) {
     return apiRequest(`/prescriptions/${prescriptionId}/items/${itemId}`, {
         method: "PATCH",
