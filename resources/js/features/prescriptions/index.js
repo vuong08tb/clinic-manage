@@ -17,6 +17,7 @@ import {
     searchExaminationsByPatient,
     searchMedicineOptions,
     searchPatientOptions,
+    updatePrescription,
     updatePrescriptionItem,
 } from "./prescription-api";
 import {
@@ -91,6 +92,11 @@ export function prescriptionIndexPage() {
         itemEditErrors: {},
         itemEditSubmitting: false,
 
+        editingNotes: false,
+        notesDraft: "",
+        notesErrors: {},
+        notesSubmitting: false,
+
         deleteItemTarget: null,
         deletingItem: false,
 
@@ -104,6 +110,10 @@ export function prescriptionIndexPage() {
 
         get canAddItem() {
             return this.$store.auth.can(PERMISSIONS.PRESCRIPTIONS.ADDITEM);
+        },
+
+        get canUpdate() {
+            return this.$store.auth.can(PERMISSIONS.PRESCRIPTIONS.UPDATE);
         },
 
         get canUpdateItem() {
@@ -614,6 +624,74 @@ export function prescriptionIndexPage() {
             return firstFieldError(this.itemEditErrors, field);
         },
 
+        startEditNotes() {
+            if (!this.canUpdate || !this.detail) {
+                return;
+            }
+
+            this.editingNotes = true;
+            this.notesDraft = this.detail.notes ?? "";
+            this.notesErrors = {};
+        },
+
+        cancelEditNotes() {
+            if (this.notesSubmitting) {
+                return;
+            }
+
+            this.editingNotes = false;
+            this.notesDraft = "";
+            this.notesErrors = {};
+        },
+
+        async saveNotes() {
+            if (this.notesSubmitting || !this.canUpdate || !this.detail) {
+                return;
+            }
+
+            const notes = this.notesDraft.trim();
+
+            // The endpoint rejects an update carrying no field, and an unchanged
+            // note is not worth a request either.
+            if (notes === (this.detail.notes ?? "")) {
+                this.cancelEditNotes();
+
+                return;
+            }
+
+            this.notesSubmitting = true;
+            this.notesErrors = {};
+            let saved = false;
+
+            try {
+                await updatePrescription(this.detail.id, {
+                    notes: notes === "" ? null : notes,
+                });
+
+                saved = true;
+
+                this.$store.ui.notify("Cập nhật ghi chú thành công.", "success");
+            } catch (error) {
+                if (error instanceof ApiError) {
+                    this.notesErrors = error.errors ?? {};
+                }
+            } finally {
+                this.notesSubmitting = false;
+            }
+
+            if (!saved) {
+                return;
+            }
+
+            this.cancelEditNotes();
+
+            await this.reloadDetail();
+        },
+
+        notesFieldError(field) {
+            return firstFieldError(this.notesErrors, field);
+        },
+
         askDeleteItem(item) {
             if (!this.canRemoveItem) {
                 return;
@@ -801,6 +879,7 @@ export function prescriptionIndexPage() {
             this.detail = null;
             this.detailError = "";
             this.cancelEditItem();
+            this.cancelEditNotes();
             this.deleteItemTarget = null;
             this.clearMedicineDraft();
         },

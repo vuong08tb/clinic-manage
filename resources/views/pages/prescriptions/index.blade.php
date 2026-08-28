@@ -203,9 +203,30 @@
             </dl>
 
             <div>
-                <h3 class="text-sm font-semibold text-slate-700">Ghi chú</h3>
-                <p class="mt-2 whitespace-pre-line text-sm text-slate-600" x-text="detail?.notes || 'Không có ghi chú.'">
-                </p>
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-slate-700">Ghi chú</h3>
+                    <button x-cloak x-show="canUpdate && !editingNotes" type="button"
+                        class="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                        x-on:click="startEditNotes()">Sửa</button>
+                </div>
+
+                <p x-show="!editingNotes" class="mt-2 whitespace-pre-line text-sm text-slate-600"
+                    x-text="detail?.notes || 'Không có ghi chú.'"></p>
+
+                <div x-cloak x-show="editingNotes" class="mt-2 space-y-2">
+                    <label for="prescription-notes-edit" class="sr-only">Ghi chú đơn thuốc</label>
+                    <textarea id="prescription-notes-edit" rows="3" class="form-input" x-model.trim="notesDraft"
+                        x-bind:class="{ 'form-input-error': notesFieldError('notes') }"></textarea>
+                    <p x-cloak x-show="notesFieldError('notes')" class="text-sm text-rose-600"
+                        x-text="notesFieldError('notes')"></p>
+                    <div class="flex gap-2">
+                        <x-ui.button type="button" x-on:click="saveNotes()" x-bind:disabled="notesSubmitting">
+                            <span x-text="notesSubmitting ? 'Đang lưu…' : 'Lưu'"></span>
+                        </x-ui.button>
+                        <x-ui.button type="button" variant="secondary" x-on:click="cancelEditNotes()"
+                            x-bind:disabled="notesSubmitting">Huỷ</x-ui.button>
+                    </div>
+                </div>
             </div>
 
             {{-- Danh sách thuốc trong toa (bảng editable qua API item) --}}
