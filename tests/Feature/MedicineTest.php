@@ -216,6 +216,103 @@ class MedicineTest extends TestCase
     }
 
     /**
+     * Verify the low stock list keeps only medicines at or below the threshold,
+     * puts the most urgent first, and hides soft deleted rows.
+     */
+    public function test_pharmacist_can_list_low_stock_medicines_ordered_by_urgency(): void
+    {
+        config(['clinic.low_stock_threshold' => 5]);
+
+        Medicine::factory()->create(['code' => 'MED-L1', 'name' => 'Zinc 10mg', 'stock' => 0]);
+        Medicine::factory()->create(['code' => 'MED-L2', 'name' => 'Paracetamol 500mg', 'stock' => 3]);
+        Medicine::factory()->create(['code' => 'MED-L3', 'name' => 'Aspirin 81mg', 'stock' => 3]);
+        Medicine::factory()->create(['code' => 'MED-L4', 'name' => 'Amoxicillin 500mg', 'stock' => 5]);
+        Medicine::factory()->create(['code' => 'MED-H1', 'name' => 'Vitamin C 1000mg', 'stock' => 6]);
+        Medicine::factory()->create(['code' => 'MED-H2', 'name' => 'Berberin', 'stock' => 80]);
+
+        $deleted = Medicine::factory()->create(['code' => 'MED-DEL', 'name' => 'Deleted Medicine', 'stock' => 1]);
+        $deleted->delete();
+
+        Sanctum::actingAs($this->createUser('PHARMACIST'));
+
+        $this->getJson('/api/medicines/low-stock')
+            ->assertOk()
+            ->assertJsonPath('message', 'Low stock medicines retrieved')
+            ->assertJsonCount(4, 'data')
+            ->assertJsonPath('meta.total', 4)
+            // Lowest stock first, then name, so the tie at stock 3 stays deterministic.
+            ->assertJsonPath('data.0.name', 'Zinc 10mg')
+            ->assertJsonPath('data.1.name', 'Aspirin 81mg')
+            ->assertJsonPath('data.2.name', 'Paracetamol 500mg')
+            // Stock exactly on the threshold still counts as low.
+            ->assertJsonPath('data.3.name', 'Amoxicillin 500mg')
+            ->assertJsonStructure([
+                'data' => [['id', 'code', 'name', 'unit', 'price', 'stock', 'is_active']],
+                'meta' => ['current_page', 'from', 'last_page', 'per_page', 'to', 'total'],
+            ]);
+    }
+
+    /**
+     * Verify the administrator inherits the permission added by the data migration.
+     */
+    public function test_admin_can_list_low_stock_medicines(): void
+    {
+        config(['clinic.low_stock_threshold' => 5]);
+
+        Medicine::factory()->create(['code' => 'MED-L1', 'stock' => 2]);
+        Medicine::factory()->create(['code' => 'MED-H1', 'stock' => 90]);
+
+        Sanctum::actingAs($this->createUser('ADMIN'));
+
+        $this->getJson('/api/medicines/low-stock')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.code', 'MED-L1');
+    }
+
+    /**
+     * Verify roles without MEDICINES.LOWSTOCK are rejected, including the doctor
+     * who may otherwise read the medicine list.
+     */
+    public function test_low_stock_is_denied_to_roles_without_the_permission(): void
+    {
+        Medicine::factory()->create(['stock' => 1]);
+
+        foreach (['DOCTOR', 'RECEPTIONIST', 'CASHIER'] as $roleName) {
+            Sanctum::actingAs($this->createUser($roleName));
+
+            $this->getJson('/api/medicines/low-stock')
+                ->assertForbidden()
+                ->assertJsonPath('message', 'Missing permission: MEDICINES.LOWSTOCK');
+        }
+    }
+
+    /**
+     * Verify the low stock list is not reachable without a token.
+     */
+    public function test_low_stock_requires_authentication(): void
+    {
+        $this->getJson('/api/medicines/low-stock')
+            ->assertUnauthorized()
+            ->assertJsonPath('message', 'Unauthenticated.');
+    }
+
+    /**
+     * Verify the low stock list enforces the shared page size limit.
+     */
+    public function test_low_stock_rejects_an_oversized_page_size(): void
+    {
+        Sanctum::actingAs($this->createUser('PHARMACIST'));
+
+        $this->getJson('/api/medicines/low-stock?per_page=101')
+            ->assertUnprocessable()
+            ->assertJsonPath(
+                'errors.per_page.0',
+                'The page size may not be greater than 100.',
+            );
+    }
+
+    /**
      * Verify the doctor role can only read medicines.
      */
     public function test_doctor_is_read_only(): void

@@ -76,8 +76,6 @@ class StatsService
      */
     private function lowStockMedicines(): int
     {
-        return Medicine::query()
-            ->where('stock', '<=', (int) config('clinic.low_stock_threshold'))
-            ->count();
+        return Medicine::query()->lowStock()->count();
     }
 }

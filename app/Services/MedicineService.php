@@ -84,4 +84,18 @@ class MedicineService
             return $lockedMedicine->refresh();
         });
     }
+
+    /**
+     * Paginate medicines that need restocking, most urgent first.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    public function lowStock(array $filters): LengthAwarePaginator
+    {
+        return Medicine::query()
+            ->lowStock()
+            ->orderBy('stock')
+            ->orderBy('name')
+            ->paginate((int) ($filters['per_page'] ?? 15));
+    }
 }

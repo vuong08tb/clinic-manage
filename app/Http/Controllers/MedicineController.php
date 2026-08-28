@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Constants\MedicineMessage;
 use App\Http\Requests\Medicine\AdjustMedicineStockRequest;
+use App\Http\Requests\Medicine\ListLowStockMedicinesRequest;
 use App\Http\Requests\Medicine\ListMedicinesRequest;
 use App\Http\Requests\Medicine\StoreMedicineRequest;
 use App\Http\Requests\Medicine\UpdateMedicineRequest;
@@ -112,6 +113,20 @@ class MedicineController extends Controller
         return ApiResponse::resource(
             new MedicineResource($adjustedMedicine),
             MedicineMessage::STOCK_ADJUSTED,
+            Response::HTTP_OK,
+        );
+    }
+
+    /**
+     * List medicines that have fallen to or below the low-stock threshold.
+     */
+    public function lowStock(ListLowStockMedicinesRequest $request): JsonResponse
+    {
+        $medicines = $this->service->lowStock($request->validated());
+
+        return ApiResponse::paginated(
+            MedicineResource::collection($medicines),
+            MedicineMessage::LOW_STOCK_RETRIEVED,
             Response::HTTP_OK,
         );
     }

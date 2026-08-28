@@ -27,6 +27,7 @@ return [
         'updateItem' => 'UPDATEITEM',
         'removeItem' => 'REMOVEITEM',
         'adjustStock' => 'ADJUSTSTOCK',
+        'lowStock' => 'LOWSTOCK',
         'capture' => 'CAPTURE',
         'clientToken' => 'CREATE',
     ],
