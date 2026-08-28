@@ -64,23 +64,11 @@ class PaymentController extends Controller
 
         return ApiResponse::resource(
             new PaymentResource($captured),
-            $captured->status === Payment::STATUS_COMPLETED
-                ? PaymentMessage::CAPTURED
-                : PaymentMessage::CAPTURE_FAILED,
-            Response::HTTP_OK,
-        );
-    }
-
-    /**
-     * Cancel a pending payment (e.g. the buyer backed out of PayPal checkout).
-     */
-    public function cancel(Payment $payment): JsonResponse
-    {
-        $cancelled = $this->service->cancel($payment);
-
-        return ApiResponse::resource(
-            new PaymentResource($cancelled),
-            PaymentMessage::CANCELLED,
+            match ($captured->status) {
+                Payment::STATUS_COMPLETED => PaymentMessage::CAPTURED,
+                Payment::STATUS_CANCELLED => PaymentMessage::CANCELLED,
+                default => PaymentMessage::CAPTURE_FAILED,
+            },
             Response::HTTP_OK,
         );
     }

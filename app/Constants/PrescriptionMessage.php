@@ -9,6 +9,14 @@ final class PrescriptionMessage
 {
     public const CREATED = 'Prescription created';
 
+    public const UPDATED = 'Prescription updated';
+
+    public const UPDATE_FIELD_REQUIRED = 'At least one prescription field must be provided.';
+
+    public const EXAMINATION_CANNOT_BE_CHANGED = 'The prescription examination cannot be changed.';
+
+    public const ITEMS_MANAGED_SEPARATELY = 'Prescription items are managed through the item endpoints.';
+
     public const SELECTED_EXAMINATION_NOT_FOUND = 'The selected examination does not exist.';
 
     public const DOCTOR_ASSIGNED_FROM_EXAMINATION = 'The prescription doctor is assigned from the examination.';

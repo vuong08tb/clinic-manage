@@ -1,4 +1,4 @@
-import { cancelPayment, getPayments } from "./payment-api";
+import { capturePayment, getPayments } from "./payment-api";
 
 export function paymentCancelPage() {
     return {
@@ -31,13 +31,16 @@ export function paymentCancelPage() {
 
                 if (this.payment?.status === "pending") {
                     try {
-                        const cancelled = await cancelPayment(this.payment.id);
+                        // PayPal has no cancel-order endpoint, so capture is the
+                        // single reconciliation point: it comes back
+                        // ORDER_NOT_APPROVED and the payment lands on "cancelled".
+                        const settled = await capturePayment(this.payment.id);
 
-                        this.payment = cancelled.data ?? this.payment;
+                        this.payment = settled.data ?? this.payment;
                     } catch {
                         // Best-effort: the page's messaging doesn't depend on
-                        // the server-side status, so a failed cancel call
-                        // (e.g. missing permission) shouldn't block rendering.
+                        // the server-side status, so a failed call (e.g. missing
+                        // permission) shouldn't block rendering.
                     }
                 }
             } catch {

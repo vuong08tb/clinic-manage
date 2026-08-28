@@ -25,8 +25,6 @@ final class PaymentMessage
 
     public const PAYMENT_CANNOT_BE_CAPTURED = 'Only pending payments can be captured.';
 
-    public const PAYMENT_CANNOT_BE_CANCELLED = 'Only pending payments can be cancelled.';
-
     public const CAPTURE_WOULD_EXCEED_TOTAL = 'Capturing this payment would exceed the invoice total.';
 
     public const SELECTED_INVOICE_NOT_FOUND = 'The selected invoice does not exist.';

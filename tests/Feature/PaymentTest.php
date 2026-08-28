@@ -613,38 +613,55 @@ class PaymentTest extends TestCase
     }
 
     /**
-     * Verify a cashier can cancel a pending payment (e.g. buyer backed out of PayPal checkout).
+     * Verify a buyer who backs out of PayPal checkout lands on "cancelled" rather than
+     * "failed". PayPal exposes no cancel-order endpoint, so capture is the single point
+     * where an unfinished checkout is reconciled.
      */
-    public function test_cashier_can_cancel_a_pending_payment(): void
+    public function test_capture_marks_payment_cancelled_when_the_buyer_never_approved_the_order(): void
     {
-        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
+        $invoice = Invoice::factory()->create(['total' => 100000, 'status' => Invoice::STATUS_UNPAID]);
         $payment = Payment::factory()->create([
             'invoice_id' => $invoice->id,
+            'amount' => 100000,
             'status' => Payment::STATUS_PENDING,
             'provider_order_id' => 'ORDER-CANCEL-1',
         ]);
 
+        Http::fake([
+            'api-m.sandbox.paypal.com/v1/oauth2/token' => Http::response([
+                'access_token' => 'FAKE_ACCESS_TOKEN',
+            ], 200),
+            'api-m.sandbox.paypal.com/v2/checkout/orders/ORDER-CANCEL-1/capture' => Http::response([
+                'name' => 'UNPROCESSABLE_ENTITY',
+                'details' => [
+                    ['issue' => 'ORDER_NOT_APPROVED', 'description' => 'Payer has not yet approved the Order.'],
+                ],
+            ], 422),
+        ]);
+
         Sanctum::actingAs($this->createUser('CASHIER'));
 
-        $this->postJson("/api/payments/{$payment->id}/cancel")
+        $this->postJson("/api/payments/{$payment->id}/capture")
             ->assertOk()
-            ->assertJson([
-                'success' => true,
-                'message' => 'Payment cancelled',
-                'data' => ['status' => 'cancelled'],
-            ]);
+            ->assertJsonPath('message', 'Payment cancelled')
+            ->assertJsonPath('data.status', Payment::STATUS_CANCELLED);
 
         $this->assertDatabaseHas('payments', [
             'id' => $payment->id,
             'status' => Payment::STATUS_CANCELLED,
         ]);
+        // The money was never taken, so the invoice still owes its full total.
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoice->id,
+            'status' => Invoice::STATUS_UNPAID,
+        ]);
     }
 
     /**
-     * Verify re-cancelling an already cancelled payment reports the existing result instead of
-     * failing: PayPal may redirect the customer back to the cancel page more than once.
+     * Verify replaying capture on an already cancelled payment reports the existing result
+     * instead of failing: PayPal can redirect the customer back more than once.
      */
-    public function test_cancel_is_idempotent_for_an_already_cancelled_payment(): void
+    public function test_capture_is_idempotent_for_an_already_cancelled_payment(): void
     {
         $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
         $payment = Payment::factory()->create([
@@ -654,63 +671,13 @@ class PaymentTest extends TestCase
 
         Sanctum::actingAs($this->createUser('CASHIER'));
 
-        $this->postJson("/api/payments/{$payment->id}/cancel")
+        $this->postJson("/api/payments/{$payment->id}/capture")
             ->assertOk()
+            ->assertJsonPath('message', 'Payment cancelled')
             ->assertJsonPath('data.status', Payment::STATUS_CANCELLED);
-    }
 
-    /**
-     * Verify a payment that is neither pending nor cancelled cannot be cancelled.
-     */
-    public function test_cancel_rejected_when_payment_is_not_pending(): void
-    {
-        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
-        $payment = Payment::factory()->completed()->create(['invoice_id' => $invoice->id]);
-
-        Sanctum::actingAs($this->createUser('CASHIER'));
-
-        $this->postJson("/api/payments/{$payment->id}/cancel")
-            ->assertStatus(422)
-            ->assertJsonPath('errors.payment.0', 'Only pending payments can be cancelled.');
-
-        $this->assertDatabaseHas('payments', ['id' => $payment->id, 'status' => Payment::STATUS_COMPLETED]);
-    }
-
-    /**
-     * Verify cancelling a missing payment returns 404.
-     */
-    public function test_cancel_for_missing_payment_returns_not_found(): void
-    {
-        Sanctum::actingAs($this->createUser('CASHIER'));
-
-        $this->postJson('/api/payments/999999/cancel')->assertNotFound();
-    }
-
-    /**
-     * Verify roles without PAYMENTS.CANCEL are forbidden from cancelling payments.
-     */
-    public function test_roles_without_permission_cannot_cancel_payments(): void
-    {
-        $invoice = Invoice::factory()->create(['status' => Invoice::STATUS_UNPAID]);
-        $payment = Payment::factory()->create(['invoice_id' => $invoice->id, 'status' => Payment::STATUS_PENDING]);
-
-        foreach (['DOCTOR', 'RECEPTIONIST', 'PHARMACIST'] as $role) {
-            Sanctum::actingAs($this->createUser($role));
-
-            $this->postJson("/api/payments/{$payment->id}/cancel")
-                ->assertForbidden()
-                ->assertJsonPath('message', 'Missing permission: PAYMENTS.CANCEL');
-        }
-    }
-
-    /**
-     * Verify unauthenticated cancel requests are rejected.
-     */
-    public function test_unauthenticated_cancel_request_is_rejected(): void
-    {
-        $payment = Payment::factory()->create(['status' => Payment::STATUS_PENDING]);
-
-        $this->postJson("/api/payments/{$payment->id}/cancel")->assertUnauthorized();
+        // A replay must not reach PayPal again.
+        Http::assertNothingSent();
     }
 
     /**

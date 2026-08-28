@@ -496,6 +496,41 @@
                     }
                 },
                 {
+                    "name": "7b. Sửa ghi chú đơn thuốc",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Ghi chú đã cập nhật', () => pm.expect(res.data.notes).to.eql('Uống sau ăn, tái khám sau 7 ngày'));",
+                                    "pm.test('Các dòng thuốc giữ nguyên', () => pm.expect(res.data.items.length).to.eql(1));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"notes\": \"Uống sau ăn, tái khám sau 7 ngày\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/prescriptions/{{prescription_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "prescriptions", "{{prescription_id}}"]
+                        }
+                    }
+                },
+                {
                     "name": "8. Kiểm tra tồn kho đã bị trừ",
                     "event": [
                         {

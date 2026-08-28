@@ -62,6 +62,18 @@ class PrescriptionService
     }
 
     /**
+     * Update the prescription's own fields, leaving its items and stock untouched.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function update(Prescription $prescription, array $data): Prescription
+    {
+        $prescription->update($data);
+
+        return $this->load($prescription->refresh());
+    }
+
+    /**
      * Create a prescription from an examination, deducting stock for any supplied items.
      *
      * @param  array<string, mixed>  $data

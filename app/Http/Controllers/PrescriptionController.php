@@ -7,6 +7,7 @@ use App\Http\Requests\Prescription\AddPrescriptionItemRequest;
 use App\Http\Requests\Prescription\ListPrescriptionsRequest;
 use App\Http\Requests\Prescription\StorePrescriptionRequest;
 use App\Http\Requests\Prescription\UpdatePrescriptionItemRequest;
+use App\Http\Requests\Prescription\UpdatePrescriptionRequest;
 use App\Http\Resources\PrescriptionItemResource;
 use App\Http\Resources\PrescriptionResource;
 use App\Http\Responses\ApiResponse;
@@ -63,6 +64,25 @@ class PrescriptionController extends Controller
             new PrescriptionResource($prescription),
             PrescriptionMessage::CREATED,
             Response::HTTP_CREATED,
+        );
+    }
+
+    /**
+     * Update the prescription's notes.
+     */
+    public function update(
+        UpdatePrescriptionRequest $request,
+        Prescription $prescription,
+    ): JsonResponse {
+        $updatedPrescription = $this->service->update(
+            $prescription,
+            $request->validated(),
+        );
+
+        return ApiResponse::resource(
+            new PrescriptionResource($updatedPrescription),
+            PrescriptionMessage::UPDATED,
+            Response::HTTP_OK,
         );
     }
 
