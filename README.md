@@ -333,54 +333,9 @@ Permission          PATIENTS.CREATE
        │
        ▼  User::hasPermission() → role_permissions
 Allow (next) or 403 "Missing permission: PATIENTS.CREATE"
+
 ```
 
-The action map covers `index→FINDALL`, `store→CREATE`, `show→FINDONE`, `update→UPDATE`,
-`destroy→DELETE`, plus the custom actions `updateStatus`, `addItem`, `updateItem`,
-`removeItem`, `adjustStock` and `capture`. Any action **not** in the map falls back to its own
-name upper-cased — that is how `PaymentController@cancel` resolves to `PAYMENTS.CANCEL`
-without a map entry. `config/rbac.php` also holds an `overrides` map for the few routes whose
-permission does not follow the convention (`StatsController@show` → `STATS.SHOW`).
-
-Because the mapping is derived from `Controller@action`, adding a route automatically
-requires the matching permission — there is nothing to remember to wire up.
-
-### 6.3. Adding a new permission
-
-A new permission is **data, so it ships as a data migration** — never as a Seeder edit alone.
-Seeders are re-run selectively and are not guaranteed to execute on an existing database,
-whereas a migration runs exactly once per environment and is tracked.
-
-Write the migration idempotently (`upsert` keyed on `name`) so re-running it is harmless:
-
-```php
-// database/migrations/2026_08_28_100000_add_payments_cancel_permission.php
-public function up(): void
-{
-    $now = now();
-
-    DB::table('permissions')->upsert(
-        [[
-            'name' => 'PAYMENTS.CANCEL',
-            'display_name' => 'Hủy thanh toán',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]],
-        ['name'],
-        ['display_name', 'updated_at'],
-    );
-}
-
-public function down(): void
-{
-    DB::table('permissions')->where('name', 'PAYMENTS.CANCEL')->delete();
-}
-```
-
-Then grant it to the relevant roles in `database/seeders/RbacSeeder.php`. `ADMIN` receives
-every permission automatically, so only the other roles need an entry.
-
----
 
 ## 7. PostgreSQL Indexes & Constraints
 
@@ -415,15 +370,9 @@ Added to match the filters the API actually exposes:
 | `invoices(status)` | `?status=unpaid` listing |
 | `activity_logs(subject_type, subject_id)`, `(user_id)`, `(created_at)` | Audit lookups by subject, actor, or time range |
 
-### 7.3. Delete behaviour
+```
 
-Foreign keys use `RESTRICT` by default: a patient, doctor, medicine, examination or invoice
-that is referenced by clinical history **cannot be deleted**, so the record trail stays intact.
-The single exception is `prescription_items.prescription_id`, which cascades — items have no
-meaning without their prescription. `patients` and `medicines` additionally use soft deletes,
-so "deleting" one hides it from listings while preserving every historical reference.
-
----
+```
 
 ## 8. Transactions & Concurrency
 

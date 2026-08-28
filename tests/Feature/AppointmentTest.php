@@ -10,6 +10,7 @@ use App\Models\User;
 use Database\Seeders\RbacSeeder;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -410,6 +411,42 @@ class AppointmentTest extends TestCase
             $doctor,
             ['scheduled_at' => '2030-06-15T09:00:00+07:00'],
         ))->assertCreated();
+    }
+
+    /**
+     * Guard the partial index that backs the conflict check.
+     *
+     * The index is only used while the conflict query filters on exactly the
+     * predicate baked into it. If the query above ever changes which statuses
+     * it excludes, the index is silently ignored — no error, just a slower
+     * plan. This test fails instead, and points at the migration that has to
+     * change with it.
+     */
+    public function test_active_schedule_index_predicate_matches_the_conflict_check(): void
+    {
+        $driver = DB::connection()->getDriverName();
+
+        $row = match ($driver) {
+            'pgsql' => DB::selectOne(
+                'SELECT indexdef AS definition FROM pg_indexes WHERE indexname = ?',
+                ['appointments_active_schedule_index'],
+            ),
+            'sqlite' => DB::selectOne(
+                "SELECT sql AS definition FROM sqlite_master WHERE type = 'index' AND name = ?",
+                ['appointments_active_schedule_index'],
+            ),
+            default => $this->markTestSkipped("Index introspection is not implemented for [{$driver}]."),
+        };
+
+        $this->assertNotNull($row, 'The appointments_active_schedule_index partial index is missing.');
+
+        $this->assertStringContainsString('doctor_id', $row->definition);
+        $this->assertStringContainsString('scheduled_at', $row->definition);
+        $this->assertMatchesRegularExpression(
+            "/where\s+.*status.*<>\s*'cancelled'/i",
+            $row->definition,
+            'The index predicate no longer matches the conflict query predicate.',
+        );
     }
 
     /**
