@@ -54,6 +54,14 @@ class Medicine extends Model
     }
 
     /**
+     * Filter medicines at or below the low-stock threshold
+     */
+    public function scopeLowStock(Builder $query): Builder
+    {
+        return $query->where('stock', '<=', (int) config('clinic.low_stock_threshold'));
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

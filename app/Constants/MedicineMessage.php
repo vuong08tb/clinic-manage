@@ -17,6 +17,8 @@ final class MedicineMessage
 
     public const DELETED = 'Medicine deleted';
 
+    public const LOW_STOCK_RETRIEVED = 'Low stock medicines retrieved';
+
     public const STOCK_ADJUSTED = 'Medicine stock adjusted';
 
     public const STOCK_CANNOT_BE_NEGATIVE = 'The resulting stock cannot be negative.';
