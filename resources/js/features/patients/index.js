@@ -48,6 +48,7 @@ export function patientIndexPage() {
         formErrors: {},
         formMessage: '',
         submitting: false,
+        editingSnapshot: null,
 
         detailOpen: false,
         detail: null,
@@ -192,6 +193,14 @@ export function patientIndexPage() {
             this.formMessage = '';
             this.editingId = null;
             this.editingCode = null;
+            this.editingSnapshot = null;
+        },
+
+        _isUnchanged(payload) {
+            return (
+                this.editingSnapshot !== null &&
+                JSON.stringify(payload) === JSON.stringify(this.editingSnapshot)
+            );
         },
 
         openCreateModal() {
@@ -216,6 +225,7 @@ export function patientIndexPage() {
             this.editingCode = patient.code;
 
             this.form = patientToForm(patient);
+            this.editingSnapshot = formToPayload(this.form);
 
             this.formOpen = true;
         },
@@ -294,13 +304,20 @@ export function patientIndexPage() {
                 return;
             }
 
+            const payload = formToPayload(this.form);
+
+            if (editing && this._isUnchanged(payload)) {
+                this.formOpen = false;
+                this.resetForm();
+
+                return;
+            }
+
             this.submitting = true;
             this.formErrors = {};
             this.formMessage = '';
 
             try {
-                const payload = formToPayload(this.form);
-
                 if (editing) {
                     await updatePatient(this.editingId, payload);
                 } else {

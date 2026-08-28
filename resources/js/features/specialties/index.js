@@ -361,12 +361,12 @@ export function specialtyIndexPage() {
 
                 await this.loadList();
             } catch (error) {
-                this.$store.ui.notify(
+                const message =
                     error instanceof ApiError
-                        ? error.message
-                        : "Không thể xóa chuyên khoa.",
-                    "error",
-                );
+                        ? (firstFieldError(error.errors, "specialty") ?? error.message)
+                        : "Không thể xóa chuyên khoa.";
+
+                this.$store.ui.notify(message, "error");
             } finally {
                 this.deleting = false;
             }

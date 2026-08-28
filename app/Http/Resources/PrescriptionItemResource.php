@@ -23,15 +23,26 @@ class PrescriptionItemResource extends JsonResource
             'quantity' => $this->quantity,
             'dosage' => $this->dosage,
             'usage_instruction' => $this->usage_instruction,
-            'medicine' => $this->whenLoaded('medicine', fn (): array => [
-                'id' => $this->medicine->id,
-                'code' => $this->medicine->code,
-                'name' => $this->medicine->name,
-                'unit' => $this->medicine->unit,
-                'price' => $this->medicine->price,
-                'stock' => $this->medicine->stock,
-                'is_active' => $this->medicine->is_active,
-            ]),
+            'medicine' => $this->whenLoaded('medicine', fn (): array => $this->medicineFields()),
+        ];
+    }
+
+    /**
+     * Fields exposed for the item's medicine. Stock is included because the
+     * prescription editor validates quantity against it client-side.
+     *
+     * @return array<string, mixed>
+     */
+    protected function medicineFields(): array
+    {
+        return [
+            'id' => $this->medicine->id,
+            'code' => $this->medicine->code,
+            'name' => $this->medicine->name,
+            'unit' => $this->medicine->unit,
+            'price' => $this->medicine->price,
+            'stock' => $this->medicine->stock,
+            'is_active' => $this->medicine->is_active,
         ];
     }
 }
