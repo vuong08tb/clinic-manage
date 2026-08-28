@@ -27,4 +27,6 @@ final class ActivityLogAction
     public const CAPTURED = 'captured';
 
     public const CAPTURE_FAILED = 'capture_failed';
+
+    public const CANCELLED = 'cancelled';
 }

@@ -726,6 +726,15 @@ class PrescriptionTest extends TestCase
     public function test_show_returns_prescription_with_context(): void
     {
         $prescription = Prescription::factory()->create();
+        $medicine = Medicine::factory()->create([
+            'stock' => 300,
+            'is_active' => true,
+        ]);
+        PrescriptionItem::factory()->create([
+            'prescription_id' => $prescription->id,
+            'medicine_id' => $medicine->id,
+            'quantity' => 10,
+        ]);
 
         Sanctum::actingAs($prescription->doctor->user);
 
@@ -733,7 +742,10 @@ class PrescriptionTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.id', $prescription->id)
             ->assertJsonPath('data.doctor.id', $prescription->doctor_id)
-            ->assertJsonPath('data.examination.id', $prescription->examination_id);
+            ->assertJsonPath('data.examination.id', $prescription->examination_id)
+            ->assertJsonPath('data.items.0.quantity', 10)
+            ->assertJsonPath('data.items.0.medicine.id', $medicine->id)
+            ->assertJsonPath('data.items.0.medicine.stock', 300);
     }
 
     /**
@@ -763,6 +775,110 @@ class PrescriptionTest extends TestCase
 
         $this->getJson('/api/prescriptions')->assertUnauthorized();
         $this->getJson("/api/prescriptions/{$prescription->id}")->assertUnauthorized();
+    }
+
+    /**
+     * Verify a doctor can edit the prescription's notes.
+     */
+    public function test_doctor_can_update_prescription_notes(): void
+    {
+        $prescription = Prescription::factory()->create(['notes' => 'Ghi chú cũ']);
+
+        Sanctum::actingAs($prescription->doctor->user);
+
+        $this->patchJson("/api/prescriptions/{$prescription->id}", [
+            'notes' => 'Uống sau ăn, tái khám sau 7 ngày',
+        ])->assertOk()
+            ->assertJsonPath('message', 'Prescription updated')
+            ->assertJsonPath('data.id', $prescription->id)
+            ->assertJsonPath('data.notes', 'Uống sau ăn, tái khám sau 7 ngày');
+
+        $this->assertDatabaseHas('prescriptions', [
+            'id' => $prescription->id,
+            'notes' => 'Uống sau ăn, tái khám sau 7 ngày',
+        ]);
+    }
+
+    /**
+     * Verify an update carrying no editable field is rejected.
+     */
+    public function test_update_rejects_empty_payload(): void
+    {
+        $prescription = Prescription::factory()->create();
+
+        Sanctum::actingAs($prescription->doctor->user);
+
+        $this->patchJson("/api/prescriptions/{$prescription->id}", [])
+            ->assertStatus(422)
+            ->assertJsonPath(
+                'errors.prescription.0',
+                'At least one prescription field must be provided.',
+            );
+    }
+
+    /**
+     * Verify the update endpoint cannot rewrite ownership or bypass stock handling.
+     */
+    public function test_update_rejects_protected_fields(): void
+    {
+        $prescription = Prescription::factory()->create();
+        $medicine = Medicine::factory()->create();
+
+        Sanctum::actingAs($prescription->doctor->user);
+
+        $this->patchJson("/api/prescriptions/{$prescription->id}", [
+            'notes' => 'Ghi chú mới',
+            'examination_id' => Examination::factory()->create()->id,
+        ])->assertStatus(422)
+            ->assertJsonPath(
+                'errors.examination_id.0',
+                'The prescription examination cannot be changed.',
+            );
+
+        $this->patchJson("/api/prescriptions/{$prescription->id}", [
+            'notes' => 'Ghi chú mới',
+            'doctor_id' => Doctor::factory()->create()->id,
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors('doctor_id');
+
+        // Items move stock, so they must go through the item endpoints instead.
+        $this->patchJson("/api/prescriptions/{$prescription->id}", [
+            'notes' => 'Ghi chú mới',
+            'items' => [['medicine_id' => $medicine->id, 'quantity' => 1, 'dosage' => '1v']],
+        ])->assertStatus(422)
+            ->assertJsonPath(
+                'errors.items.0',
+                'Prescription items are managed through the item endpoints.',
+            );
+    }
+
+    /**
+     * Verify roles without PRESCRIPTIONS.UPDATE cannot edit a prescription. The
+     * permission existed in the catalog before the route did, so this guards the
+     * two staying wired together.
+     */
+    public function test_roles_without_permission_cannot_update_prescriptions(): void
+    {
+        $prescription = Prescription::factory()->create();
+
+        foreach (['PHARMACIST', 'RECEPTIONIST', 'CASHIER'] as $role) {
+            Sanctum::actingAs($this->createUser($role));
+
+            $this->patchJson("/api/prescriptions/{$prescription->id}", ['notes' => 'x'])
+                ->assertForbidden()
+                ->assertJsonPath('message', 'Missing permission: PRESCRIPTIONS.UPDATE');
+        }
+    }
+
+    /**
+     * Verify unauthenticated update requests are rejected.
+     */
+    public function test_unauthenticated_update_request_is_rejected(): void
+    {
+        $prescription = Prescription::factory()->create();
+
+        $this->patchJson("/api/prescriptions/{$prescription->id}", ['notes' => 'x'])
+            ->assertUnauthorized();
     }
 
     /**

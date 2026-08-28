@@ -1,4 +1,5 @@
 import { ApiError } from "../../core/api-error";
+import { formatCurrency } from "../../core/formatters";
 import { capturePayment, getPayments } from "./payment-api";
 
 export function paymentReturnPage() {
@@ -66,5 +67,7 @@ export function paymentReturnPage() {
                 ? `/invoices?invoice_id=${this.payment.invoice_id}`
                 : "/invoices";
         },
+
+        formatCurrency,
     };
 }

@@ -10,6 +10,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\PaymentService;
+use App\Services\PayPalService;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -21,7 +22,10 @@ class PaymentController extends Controller
     /**
      * Create a new payment controller instance.
      */
-    public function __construct(private readonly PaymentService $service) {}
+    public function __construct(
+        private readonly PaymentService $service,
+        private readonly PayPalService $payPalService,
+    ) {}
 
     /**
      * Return filtered and paginated payments.
@@ -60,9 +64,24 @@ class PaymentController extends Controller
 
         return ApiResponse::resource(
             new PaymentResource($captured),
-            $captured->status === Payment::STATUS_COMPLETED
-                ? PaymentMessage::CAPTURED
-                : PaymentMessage::CAPTURE_FAILED,
+            match ($captured->status) {
+                Payment::STATUS_COMPLETED => PaymentMessage::CAPTURED,
+                Payment::STATUS_CANCELLED => PaymentMessage::CANCELLED,
+                default => PaymentMessage::CAPTURE_FAILED,
+            },
+            Response::HTTP_OK,
+        );
+    }
+
+    /**
+     * Issue a browser-safe client token used to initialize the PayPal Web SDK
+     * (Card Fields) on the frontend. client_secret never leaves the server.
+     */
+    public function clientToken(): JsonResponse
+    {
+        return ApiResponse::success(
+            ['client_token' => $this->payPalService->generateClientToken()],
+            PaymentMessage::CLIENT_TOKEN_RETRIEVED,
             Response::HTTP_OK,
         );
     }

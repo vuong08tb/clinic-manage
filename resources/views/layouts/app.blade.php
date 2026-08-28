@@ -7,6 +7,10 @@
 
         <title>@yield('title', 'Dashboard') · {{ config('app.name', 'Clinic Management') }}</title>
 
+        <meta name="paypal-mode" content="{{ config('paypal.mode') }}">
+        <meta name="paypal-currency" content="{{ config('paypal.currency') }}">
+        <meta name="paypal-exchange-rate-vnd" content="{{ config('paypal.exchange_rate_vnd') }}">
+
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="min-h-screen bg-slate-50" x-data x-init="$store.auth.bootstrap()">

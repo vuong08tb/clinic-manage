@@ -34,7 +34,7 @@ class InvoiceResource extends JsonResource
             'examination' => new ExaminationResource($this->whenLoaded('examination')),
             'items' => $this->when(
                 $prescription instanceof Prescription,
-                fn () => PrescriptionItemResource::collection($prescription->items),
+                fn () => InvoiceItemResource::collection($prescription->items),
             ),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

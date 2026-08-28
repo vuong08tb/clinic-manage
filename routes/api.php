@@ -36,6 +36,7 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::apiResource('invoices', InvoiceController::class)
         ->only(['index', 'store', 'show', 'update']);
     Route::get('/payments', [PaymentController::class, 'index']);
+    Route::get('/payments/paypal/client-token', [PaymentController::class, 'clientToken']);
     Route::post('/invoices/{invoice}/payments', [PaymentController::class, 'store']);
     Route::post('/payments/{payment}/capture', [PaymentController::class, 'capture']);
     Route::patch('/medicines/{medicine}/stock', [MedicineController::class, 'adjustStock']);
@@ -44,6 +45,7 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::get('/prescriptions', [PrescriptionController::class, 'index']);
     Route::get('/prescriptions/{prescription}', [PrescriptionController::class, 'show']);
     Route::post('/prescriptions', [PrescriptionController::class, 'store']);
+    Route::match(['put', 'patch'], '/prescriptions/{prescription}', [PrescriptionController::class, 'update']);
     Route::post('/prescriptions/{prescription}/items', [PrescriptionController::class, 'addItem']);
     Route::match(['put', 'patch'], '/prescriptions/{prescription}/items/{item}', [PrescriptionController::class, 'updateItem']);
     Route::delete('/prescriptions/{prescription}/items/{item}', [PrescriptionController::class, 'removeItem']);

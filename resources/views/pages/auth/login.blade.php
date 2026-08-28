@@ -79,7 +79,6 @@
                     <div>
                         <div class="mb-2 flex items-center justify-between">
                             <label for="password" class="block text-sm font-semibold text-slate-700">Mật khẩu</label>
-                            <!-- <span class="text-xs text-slate-400">Tối thiểu 8 ký tự</span> -->
                         </div>
                         <input id="password" name="password" type="password" autocomplete="current-password" required
                             class="form-input" :class="{ 'form-input-error': fieldError('password') }"

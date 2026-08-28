@@ -209,7 +209,11 @@ class InvoiceTest extends TestCase
             ->assertJsonPath('data.examination.id', $examination->id)
             ->assertJsonPath('data.examination.patient.id', $examination->patient_id)
             ->assertJsonPath('data.examination.doctor.id', $examination->doctor_id)
-            ->assertJsonPath('data.items.0.medicine_id', $medicine->id);
+            ->assertJsonPath('data.items.0.medicine_id', $medicine->id)
+            // Cashiers hold no MEDICINES permission, so the billing view exposes
+            // every medicine field except its stock level.
+            ->assertJsonPath('data.items.0.medicine.name', $medicine->name)
+            ->assertJsonMissingPath('data.items.0.medicine.stock');
     }
 
     /**
@@ -364,7 +368,11 @@ class InvoiceTest extends TestCase
             ->assertJsonPath('data.examination.id', $examination->id)
             ->assertJsonPath('data.examination.patient.id', $examination->patient_id)
             ->assertJsonPath('data.examination.doctor.id', $examination->doctor_id)
-            ->assertJsonPath('data.items.0.medicine_id', $medicine->id);
+            ->assertJsonPath('data.items.0.medicine_id', $medicine->id)
+            // Cashiers hold no MEDICINES permission, so the billing view exposes
+            // every medicine field except its stock level.
+            ->assertJsonPath('data.items.0.medicine.name', $medicine->name)
+            ->assertJsonMissingPath('data.items.0.medicine.stock');
     }
 
     /**

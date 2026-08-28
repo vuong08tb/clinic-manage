@@ -576,6 +576,7 @@ export function prescriptionIndexPage() {
 
             this.itemEditSubmitting = true;
             this.itemEditErrors = {};
+            let saved = false;
 
             try {
                 await updatePrescriptionItem(
@@ -584,14 +585,12 @@ export function prescriptionIndexPage() {
                     updateItemPayload(this.itemEditDraft),
                 );
 
+                saved = true;
+
                 this.$store.ui.notify(
                     "Cập nhật thuốc trong toa thành công.",
                     "success",
                 );
-
-                this.cancelEditItem();
-
-                await this.reloadDetail();
             } catch (error) {
                 if (error instanceof ApiError) {
                     this.itemEditErrors = error.errors ?? {};
@@ -599,6 +598,16 @@ export function prescriptionIndexPage() {
             } finally {
                 this.itemEditSubmitting = false;
             }
+
+            if (!saved) {
+                return;
+            }
+
+            // User cancellation remains blocked while saving, but a completed
+            // save must clear the editor and its stale draft.
+            this.cancelEditItem();
+
+            await this.reloadDetail();
         },
 
         itemFieldError(field) {

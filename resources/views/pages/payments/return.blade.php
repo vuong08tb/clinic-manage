@@ -16,7 +16,7 @@
             </div>
             <h1 class="text-lg font-bold text-slate-900">Thanh toán thành công</h1>
             <p class="text-sm text-slate-500" x-show="payment"
-                x-text="`Số tiền: ${payment ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(payment.amount) : ''}`">
+                x-text="payment ? `Số tiền: ${formatCurrency(payment.amount)}` : ''">
             </p>
             <x-ui.button href="/invoices" x-bind:href="invoiceUrl">Quay lại hóa đơn</x-ui.button>
         </div>

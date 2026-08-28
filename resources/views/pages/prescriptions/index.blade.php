@@ -50,6 +50,11 @@
                             </li>
                         </template>
                     </ul>
+
+                    <p x-show="patientQuery.trim() !== '' && patientResults.length === 0"
+                        class="mt-2 text-xs text-slate-400">
+                        Không tìm thấy bệnh nhân phù hợp.
+                    </p>
                 </div>
             </div>
 
@@ -354,6 +359,11 @@
                                 </li>
                             </template>
                         </ul>
+
+                        <p x-show="examinationPickerPatientQuery.trim() !== '' && examinationPickerPatientResults.length === 0"
+                            class="mt-2 text-xs text-slate-400">
+                            Không tìm thấy bệnh nhân phù hợp.
+                        </p>
                     </div>
 
                     <div x-show="examinationPickerLoading" class="text-sm text-slate-500">Đang tải phiếu khám…</div>

@@ -29,3 +29,7 @@ export function capturePayment(paymentId) {
         method: "POST",
     });
 }
+
+export function getPayPalClientToken() {
+    return apiRequest("/payments/paypal/client-token");
+}
