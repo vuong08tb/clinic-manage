@@ -931,6 +931,42 @@
                     }
                 },
                 {
+                    "name": "Thuốc sắp hết (PHARMACIST)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Chỉ trả thuốc dưới ngưỡng', () => {",
+                                    "    res.data.forEach((m) => pm.expect(m.stock).to.be.at.most(5));",
+                                    "});",
+                                    "pm.test('Thuốc gấp nhất đứng đầu', () => {",
+                                    "    const stocks = res.data.map((m) => m.stock);",
+                                    "    pm.expect(stocks).to.eql([...stocks].sort((a, b) => a - b));",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{ "key": "token", "value": "{{token_pharmacist}}", "type": "string" }]
+                        },
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/medicines/low-stock?per_page=15",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "medicines", "low-stock"],
+                            "query": [{ "key": "per_page", "value": "15" }]
+                        }
+                    }
+                },
+                {
                     "name": "Tìm bệnh nhân theo từ khoá",
                     "request": {
                         "method": "GET",
@@ -1072,6 +1108,36 @@
                             "raw": "{{base_url}}/api/stats",
                             "host": ["{{base_url}}"],
                             "path": ["api", "stats"]
+                        }
+                    }
+                },
+                {
+                    "name": "403 — DOCTOR xem thuốc sắp hết",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                                    "pm.test('Nêu rõ quyền còn thiếu', () => {",
+                                    "    pm.expect(pm.response.json().message).to.eql('Missing permission: MEDICINES.LOWSTOCK');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{ "key": "token", "value": "{{token_doctor}}", "type": "string" }]
+                        },
+                        "method": "GET",
+                        "header": [{ "key": "Accept", "value": "application/json" }],
+                        "url": {
+                            "raw": "{{base_url}}/api/medicines/low-stock",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "medicines", "low-stock"]
                         }
                     }
                 },
