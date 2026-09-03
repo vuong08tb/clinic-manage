@@ -198,7 +198,10 @@ return Application::configure(basePath: dirname(__DIR__))
             $message = $exception->getMessage()
                 ?: (HttpResponse::$statusTexts[$status] ?? ExceptionMessage::REQUEST_FAILED);
 
-            return ApiResponse::error($message, status: $status);
+            $response = ApiResponse::error($message, status: $status);
+            $response->headers->add($exception->getHeaders());
+
+            return $response;
         });
 
         // API failures must never render an HTML exception page.
