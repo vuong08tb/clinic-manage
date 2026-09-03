@@ -11,7 +11,7 @@ middleware `throttle`.
 
 ## Mục lục
 
-0. [Kiến thức nền](#0-kiến-thức-nền) — đọc trước nếu chưa từng làm rate limiting
+0. [Kiến thức nền](#0-kiến-thức-nền) — đọc trước nếu chưa từng làm rate limiting, kèm [mức độ cần nắm](#07-nên-nắm-tới-mức-nào)
 1. [Rate limiting là gì](#1-rate-limiting-là-gì)
 2. [Tại sao API này cần](#2-tại-sao-api-này-cần)
 3. [Mô hình mối đe doạ](#3-mô-hình-mối-đe-doạ)
@@ -255,6 +255,44 @@ hiểu, không biết chờ bao lâu. Xem [mục 9.7](#97-phía-client).
 
 **6. Nghĩ rate limiting là xong phần bảo mật.** Nó là **một** lớp. Không thay thế
 authentication, authorization, validation hay WAF. Xem [mục 10](#10-rate-limiting-không-thay-thế-được-gì).
+
+### 0.7. Nên nắm tới mức nào
+
+Tài liệu này cố ý đi sâu hơn mức cần thiết để hoàn thành task. Điều đó không có nghĩa là mọi
+mục đều đáng nhớ như nhau. Bảng dưới phân tầng để khỏi phân bổ sai công sức.
+
+**Mức 1 — phải thuộc, không tra tài liệu.** Đây là thứ bị hỏi khi review code và khi phỏng vấn.
+
+| Cần nắm | Đọc ở | Tự kiểm tra: trả lời trôi được không? |
+| --- | --- | --- |
+| Rate limiting là gì, vì sao phải là middleware | [0.2](#02-vì-sao-throttle-phải-là-middleware) | *Đặt trong controller thì sao?* → đã vào tới nơi rồi, không còn gì để bảo vệ |
+| Ba thành phần: key / limit / window | [1](#1-rate-limiting-là-gì) | *Cái nào quan trọng nhất?* → key |
+| Key cho endpoint đã xác thực | [7](#7-chọn-key) | *Vì sao `user id` chứ không phải IP?* → cả phòng khám chung một IP public |
+| Vì sao login cần hai lớp | [7](#7-chọn-key) | *Lớp `email+IP` không chặn được gì?* → credential stuffing nhiều tài khoản |
+| Fixed window và đỉnh gấp đôi | [0.3](#03-bốn-thuật-toán-rate-limiting), [0.4](#04-bộ-đếm-fixed-window-chạy-thế-nào) | *Giảm đỉnh bằng cách nào?* → rút ngắn window, giảm limit theo tỉ lệ |
+| `429`, `Retry-After`, `X-RateLimit-*` | [9.4](#94-response-429--không-phải-viết-thêm-gì), [9.5](#95-header) | *Client nhận 429 thì làm gì?* → đọc `Retry-After` và chờ, không retry ngay |
+| Khai limiter và gắn vào route | [9.2](#92-khai-báo-limiter), [9.3](#93-gắn-vào-route) | Gõ lại được ba dòng đó mà không nhìn mẫu |
+
+**Mức 2 — biết là có, tra lại khi cần.** Không thuộc, nhưng nghe tới phải biết nó giải quyết gì.
+
+| Thứ | Đủ khi biết rằng | Đọc ở |
+| --- | --- | --- |
+| `throttleApi()` trong `bootstrap/app.php` | Laravel 11+ bỏ throttle mặc định, phải tự bật | [9.3](#93-gắn-vào-route) |
+| `Limit::none()` | Có cách miễn trừ cho health check, job nội bộ | [9.9](#99-miễn-trừ-những-thứ-không-được-chặn) |
+| `->response(...)` | Tuỳ biến được body của 429 | [9.4](#94-response-429--không-phải-viết-thêm-gì) |
+| `->after(...)` | Có cách chỉ đếm khi request thất bại | [14](#14-nâng-cao) |
+| `RateLimiter::hit()` / `clear()` thủ công | Login thường làm tay để xoá bộ đếm khi đăng nhập đúng | [14](#14-nâng-cao) |
+| Rate limit ở nginx / CDN | Tầng ứng dụng không phải tầng duy nhất | [14.2](#142-rate-limiting-ở-nhiều-tầng) |
+| Redis so với database cache | Redis hợp hơn cho việc đếm | [9.8](#98-chi-phí-và-hành-vi-đồng-thời-của-chính-rate-limiter) |
+
+**Mức 3 — đọc để có phản xạ, không cần nhớ.** Quên hết ngày mai cũng không sao: cơ chế khoá
+trong `DatabaseStore::incrementOrDecrement()`, race condition mà `RateLimiter::increment()` vá,
+sliding window bằng Redis sorted set, idempotency key, circuit breaker, cấu hình proxy theo
+từng loại load balancer.
+
+Giá trị của mức 3 không nằm ở việc nhớ, mà ở chỗ: khi gặp hành vi lạ, biết câu trả lời nằm
+trong `vendor/` và dám mở ra đọc thay vì đoán. Xem [mục 15](#15-lộ-trình-vừa-học-vừa-làm) —
+bài 4 và bài 7 được thiết kế đúng để tạo phản xạ đó.
 
 ---
 
@@ -687,6 +725,35 @@ Một `Limit` không đủ:
 
 Laravel cho closure trả về **mảng nhiều `Limit`** — tất cả phải cùng thoả. Hai lớp bổ khuyết
 cho nhau chứ không thừa.
+
+### Điều kiện tiên quyết: `$request->ip()` có đáng tin không
+
+Mọi key ở trên có chứa IP đều dựa trên một giả định chưa được kiểm chứng: rằng
+`$request->ip()` trả về IP thật của client. Trong project này, **giả định đó hiện chưa đúng**.
+
+`bootstrap/app.php` chưa gọi `trustProxies()`. Middleware `TrustProxies` vẫn nằm trong global
+stack mặc định của Laravel, nhưng việc đầu tiên nó làm là xoá sạch danh sách proxy tin cậy:
+
+```php
+// vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php
+$request::setTrustedProxies([], $this->getTrustedHeaderNames());   // không tin ai
+```
+
+Chỉ khi có cấu hình thì danh sách mới được nạp lại. Chưa cấu hình nghĩa là `$request->ip()`
+trả về `REMOTE_ADDR` thuần. Từ đó sinh ra hai kịch bản hỏng:
+
+| Cấu hình | Hậu quả |
+| --- | --- |
+| Không khai báo, deploy sau nginx / load balancer | `REMOTE_ADDR` là IP của nginx (`127.0.0.1`, `10.0.x.x`). **Toàn bộ người dùng chung một sổ.** Limiter 20/phút thành 20 lần đăng nhập cho cả phòng khám |
+| Tin mọi proxy: `trustProxies(at: '*')` | IP đọc từ header `X-Forwarded-For` — **do client gửi**. Kẻ tấn công đổi header mỗi request là có sổ mới, không cần proxy thật. Rate limiting bị vô hiệu hoá hoàn toàn |
+
+Đúng: khai báo dải IP thật của tầng proxy phía trước, ví dụ `trustProxies(at: ['10.0.0.0/8'])`.
+
+**Việc này phải chốt trước khi triển khai limiter theo IP**, vì cả hai kịch bản trên đều không
+gây lỗi, không ghi log, và biểu đồ vẫn xanh — một cái chặn nhầm toàn bộ, một cái không chặn ai.
+
+Key theo `user id` không bị ảnh hưởng. Chỉ login và các endpoint chưa xác thực mới phụ thuộc
+vào điều kiện này — nhưng đó lại đúng là nhóm cần bảo vệ nhất.
 
 ---
 
@@ -1960,6 +2027,31 @@ Bạn sẽ trả lời được năm câu mà mentor có thể hỏi:
 3. *Laravel dùng thuật toán gì, nhược điểm là gì?* → [mục 0.3](#03-bốn-thuật-toán-rate-limiting), [0.4](#04-bộ-đếm-fixed-window-chạy-thế-nào)
 4. *Nhiều request cùng lúc có đếm sai không?* → bài 7
 5. *Rate limiting có đủ để bảo mật không?* → [mục 10](#10-rate-limiting-không-thay-thế-được-gì)
+
+### Phạm vi cho PR đầu tiên
+
+Học sâu xong thường sinh ra ham muốn dùng hết những gì vừa học. Đừng. Reviewer đánh giá cao
+một PR nhỏ, đúng, có lý do rõ ràng hơn nhiều so với một PR phô diễn kỹ thuật.
+
+**Thuộc phạm vi:**
+
+- Bật `throttleApi()` với limiter `api` khoá theo `user id`
+- Limiter `login` hai lớp
+- Limiter `sensitive` và `payment` theo [bảng mục 8](#83-bảng-chi-tiết)
+- Test: vượt ngưỡng ra 429, dưới ngưỡng vẫn đi qua, và một negative control
+- Ghi lại **lý do chọn từng con số** — đây mới là phần được đọc kỹ nhất
+
+**Để lại cho sau, và nói rõ trong mô tả PR là đã cân nhắc:**
+
+- Sliding window tự cài đặt — [0.3](#03-bốn-thuật-toán-rate-limiting) đã giải thích khi nào mới cần
+- Limit động theo role — [9.6](#96-limit-động-theo-role-chưa-làm-ở-giai-đoạn-1)
+- Idempotency key, circuit breaker — [14](#14-nâng-cao)
+- Đổi `CACHE_STORE` sang Redis: là thay đổi hạ tầng, tách PR riêng
+
+**Không được im lặng bỏ qua:** cấu hình trusted proxies. Nếu chưa xử lý được vì còn phụ thuộc
+môi trường deploy, hãy viết một dòng trong mô tả PR: *"limiter theo IP chỉ chính xác sau khi
+khai báo trusted proxies theo hạ tầng thật — cần xác nhận với team vận hành."* Nêu ra một vấn
+đề chưa giải quyết vẫn tốt hơn nhiều so với không nhắc tới nó.
 
 ### Áp dụng cho task sau
 

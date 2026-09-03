@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "Clinic API",
-        "description": "Bộ sưu tập API phòng khám (Laravel + Sanctum + RBAC + PayPal Sandbox).\n\n## Cách chạy\n\n1. Đặt biến `base_url` (mặc định `http://localhost:8000`).\n2. Chạy thư mục **00 — Auth** trước để lấy token cho từng vai trò.\n3. Chạy thư mục **01 — Luồng chính** theo đúng thứ tự: mỗi request tự lưu id cho request kế tiếp, không cần sửa tay.\n4. Thư mục **04 — Case lỗi** kiểm tra 401 / 403 / 404 / 422.\n\nHoặc bấm **Run collection** để chạy toàn bộ theo thứ tự.\n\n## Lưu ý về PayPal\n\nRequest `Tạo thanh toán` gọi PayPal Sandbox thật và trả về `approval_url`. Muốn `Capture` thành công thì phải mở link đó trên trình duyệt và duyệt bằng tài khoản sandbox buyer trước — đây là bước thủ công do PayPal yêu cầu, không tự động hoá được.",
+        "description": "Bộ sưu tập API phòng khám (Laravel + Sanctum + RBAC + PayPal Sandbox).\n\n## Cách chạy\n\n1. Đặt biến `base_url` (mặc định `http://localhost:8000`).\n2. Chạy thư mục **00 — Auth** trước để lấy token cho từng vai trò.\n3. Chạy thư mục **01 — Luồng chính** theo đúng thứ tự: mỗi request tự lưu id cho request kế tiếp, không cần sửa tay.\n4. Thư mục **04 — Case lỗi** kiểm tra 401 / 403 / 404 / 422 / 429.\n\nHoặc bấm **Run collection** để chạy toàn bộ theo thứ tự.\n\n## Lưu ý về PayPal\n\nRequest `Tạo thanh toán` gọi PayPal Sandbox thật và trả về `approval_url`. Muốn `Capture` thành công thì phải mở link đó trên trình duyệt và duyệt bằng tài khoản sandbox buyer trước — đây là bước thủ công do PayPal yêu cầu, không tự động hoá được.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "auth": {
@@ -1269,6 +1269,76 @@
                             "path": ["api", "appointments", "{{appointment_id}}", "status"]
                         },
                         "description": "Lịch hẹn đã completed (do tạo phiếu khám) nên không quay lại scheduled được."
+                    }
+                },
+                {
+                    "name": "429 — Đăng nhập sai quá số lần",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "// Limiter cho login cho phép 5 lần/phút với mỗi cặp (email, IP).",
+                                    "// Đốt hết 5 lượt ở đây để chính request bên dưới là lần thứ 6 và bị chặn.",
+                                    "const attempt = {",
+                                    "    url: pm.variables.replaceIn('{{base_url}}/api/login'),",
+                                    "    method: 'POST',",
+                                    "    header: { 'Content-Type': 'application/json', 'Accept': 'application/json' },",
+                                    "    body: {",
+                                    "        mode: 'raw',",
+                                    "        raw: JSON.stringify({ email: 'throttle-probe@clinic.test', password: 'wrong-password' })",
+                                    "    }",
+                                    "};",
+                                    "",
+                                    "// Gửi tuần tự: lần sau chỉ chạy trong callback của lần trước.",
+                                    "const burn = (remaining) => {",
+                                    "    if (remaining === 0) {",
+                                    "        return;",
+                                    "    }",
+                                    "    pm.sendRequest(attempt, () => burn(remaining - 1));",
+                                    "};",
+                                    "",
+                                    "burn(5);"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const res = pm.response.json();",
+                                    "pm.test('429 Too Many Requests', () => pm.response.to.have.status(429));",
+                                    "pm.test('Có Retry-After để client biết chờ bao lâu', () => {",
+                                    "    pm.expect(pm.response.headers.get('Retry-After')).to.match(/^\\d+$/);",
+                                    "});",
+                                    "pm.test('Hạn mức 5 lần cho mỗi cặp email + IP', () => {",
+                                    "    pm.expect(pm.response.headers.get('X-RateLimit-Limit')).to.eql('5');",
+                                    "});",
+                                    "pm.test('Envelope có success=false', () => pm.expect(res.success).to.eql(false));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": { "type": "noauth" },
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Accept", "value": "application/json" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"throttle-probe@clinic.test\",\n    \"password\": \"wrong-password\"\n}",
+                            "options": { "raw": { "language": "json" } }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/login",
+                            "host": ["{{base_url}}"],
+                            "path": ["api", "login"]
+                        },
+                        "description": "Đăng nhập sai 6 lần liên tiếp cho cùng một email từ cùng một IP. Năm lần đầu do pre-request script gửi, nên request này là lần thứ sáu và phải nhận 429.\n\nEmail dùng ở đây không tồn tại trong hệ thống: limiter đếm theo email được gửi lên chứ không cần tài khoản có thật, nên case này không đụng tới dữ liệu nào.\n\nLưu ý: sáu lần gọi cũng tiêu 6 lượt của lớp thứ hai (20 lần/phút theo IP). Chạy lại toàn bộ collection hai lần trong vòng một phút có thể làm các request đăng nhập ở thư mục 00 nhận 429."
                     }
                 }
             ]

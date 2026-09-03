@@ -16,7 +16,7 @@ use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 // Login is public because the client does not have a Bearer token yet.
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
 // Self-service authentication endpoints only require a valid Sanctum token.
 Route::middleware('auth:sanctum')->group(function (): void {
