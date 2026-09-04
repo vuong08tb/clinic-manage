@@ -67,14 +67,9 @@ class AppServiceProvider extends ServiceProvider
         Invoice::observe(InvoiceObserver::class);
         Payment::observe(PaymentObserver::class);
 
-        // Login is throttled in two layers: 5/minute per (email, IP) pair slows password guessing
-        // against one account without letting a stranger lock its owner out from another address;
-        // 20/minute per IP catches one source spraying a password across many accounts.
         RateLimiter::for('login', function (Request $request): array {
-            // This closure runs in middleware, before LoginRequest validates anything, so the
-            // input is still raw. The type guard keeps a malformed payload from turning the
-            // limiter itself into an uncounted server error, and lowercasing matches the
-            // case-insensitive collation on users.email so spelling cannot buy fresh attempts.
+            // Normalize email: without Str::lower, "Admin@" and "admin@" would be treated
+            // as separate entries, effectively doubling the rate limit.
             $email = $request->input('email');
             $email = is_string($email) ? Str::lower(trim($email)) : '';
 
@@ -82,6 +77,18 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinute(5)->by($email.'|'.$request->ip()),
                 Limit::perMinute(20)->by($request->ip()),
             ];
+        });
+
+        RateLimiter::for('api', function (Request $request): Limit {
+            return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('sensitive', function (Request $request): Limit {
+            return Limit::perMinute(20)->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('payment', function (Request $request): Limit {
+            return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
         });
     }
 }

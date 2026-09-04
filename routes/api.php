@@ -19,13 +19,13 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
 // Self-service authentication endpoints only require a valid Sanctum token.
-Route::middleware('auth:sanctum')->group(function (): void {
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
 });
 
 // Business endpoints require both authentication and an RBAC permission.
-Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
+Route::middleware(['auth:sanctum', 'permission', 'throttle:api'])->group(function (): void {
     Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus']);
     Route::apiResource('appointments', AppointmentController::class)
         ->only(['index', 'store', 'show', 'update']);
@@ -36,9 +36,11 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::apiResource('invoices', InvoiceController::class)
         ->only(['index', 'store', 'show', 'update']);
     Route::get('/payments', [PaymentController::class, 'index']);
-    Route::get('/payments/paypal/client-token', [PaymentController::class, 'clientToken']);
-    Route::post('/invoices/{invoice}/payments', [PaymentController::class, 'store']);
-    Route::post('/payments/{payment}/capture', [PaymentController::class, 'capture']);
+    // The three routes below spend an outbound PayPal call, so they carry a second limiter on top
+    // of the group's: both must agree, and the one with fewer attempts left decides the response.
+    Route::get('/payments/paypal/client-token', [PaymentController::class, 'clientToken'])->middleware('throttle:payment');
+    Route::post('/invoices/{invoice}/payments', [PaymentController::class, 'store'])->middleware('throttle:payment');
+    Route::post('/payments/{payment}/capture', [PaymentController::class, 'capture'])->middleware('throttle:payment');
     Route::get('/medicines/low-stock', [MedicineController::class, 'lowStock']);
     Route::patch('/medicines/{medicine}/stock', [MedicineController::class, 'adjustStock']);
     Route::apiResource('medicines', MedicineController::class);
@@ -51,7 +53,8 @@ Route::middleware(['auth:sanctum', 'permission'])->group(function (): void {
     Route::match(['put', 'patch'], '/prescriptions/{prescription}/items/{item}', [PrescriptionController::class, 'updateItem']);
     Route::delete('/prescriptions/{prescription}/items/{item}', [PrescriptionController::class, 'removeItem']);
     Route::apiResource('specialties', SpecialtyController::class);
-    Route::get('/stats', [StatsController::class, 'show']);
+    // Aggregates over whole tables: cost grows with the data, so it is capped tighter than reads.
+    Route::get('/stats', [StatsController::class, 'show'])->middleware('throttle:sensitive');
     Route::get('/roles', [RoleController::class, 'index']);
     Route::patch('/users/{user}/status', [UserController::class, 'updateStatus']);
     Route::apiResource('users', UserController::class);

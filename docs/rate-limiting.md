@@ -4,8 +4,10 @@ Tài liệu này mô tả cách thiết kế rate limiting cho API của Clinic 
 hơn là **lý do đằng sau từng con số**. Mọi giá trị đề xuất đều kèm cơ sở tính toán và điều
 kiện để xem xét lại.
 
-**Trạng thái hiện tại của project:** chưa có limiter nào được khai báo, chưa route nào có
-middleware `throttle`.
+**Trạng thái hiện tại của project:** đã triển khai xong. Bốn limiter (`login`, `api`,
+`sensitive`, `payment`) khai báo trong `AppServiceProvider::boot()` và gắn vào route theo đúng
+[bảng mục 8.3](#83-bảng-chi-tiết). Còn lại ở [mục 8.5](#85-giai-đoạn-2--tách-riêng-nhóm-ghi)
+(tách limiter `write`), trusted proxies, và đổi `CACHE_STORE` sang Redis — mỗi thứ một task riêng.
 
 ---
 
@@ -924,9 +926,14 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
 RateLimiter::for('login', function (Request $request): array {
-    // Chuẩn hoá email: không có Str::lower thì "Admin@" và "admin@" là hai sổ
-    // riêng, đổi hoa-thường là nhân đôi hạn mức.
-    $email = Str::lower((string) $request->input('email'));
+    // Closure này chạy trong middleware, trước khi LoginRequest kiểm tra bất cứ thứ gì,
+    // nên input vẫn còn thô. Không có is_string() thì một payload dạng `email[]=x` làm
+    // Str::lower ném TypeError → 500, và request đó KHÔNG bao giờ được đếm: kẻ tấn công
+    // có một đường thử vô hạn đi vòng qua toàn bộ rate limiting.
+    // Str::lower là bắt buộc vì users.email collate không phân biệt hoa thường: "Admin@"
+    // và "admin@" vào cùng một tài khoản nhưng sinh hai key khác nhau nếu không chuẩn hoá.
+    $email = $request->input('email');
+    $email = is_string($email) ? Str::lower(trim($email)) : '';
 
     return [
         // Lớp 1: chặn dò mật khẩu một tài khoản từ một nguồn.
@@ -987,6 +994,39 @@ Route::middleware(['auth:sanctum', 'permission', 'throttle:api'])->group(functio
 `throttle:sensitive` (20) — cái chặt hơn thắng, và nếu sau này nới `sensitive` thì `api` vẫn
 là lưới an toàn.
 
+Điều này áp dụng cho cả header trả về. `getHeaders()` trong `ThrottleRequests` bỏ qua header
+mới nếu response đã mang một `X-RateLimit-Remaining` nhỏ hơn hoặc bằng, nên client luôn đọc
+được hạn mức của **limiter chặt nhất** chứ không phải của limiter chạy sau cùng.
+
+#### Thứ tự middleware: throttle luôn chạy SAU xác thực
+
+`Limit::...->by($request->user()?->id ...)` chỉ hoạt động nếu xác thực đã chạy xong trước đó.
+Điều đó được bảo đảm, nhưng **không phải** do thứ tự viết trong mảng `middleware([...])`.
+`Router::sortMiddleware()` sắp lại toàn bộ middleware của route theo bảng `$middlewarePriority`
+trong `Illuminate\Foundation\Http\Kernel`, và bảng đó xếp:
+
+```php
+\Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,   // auth:sanctum
+\Illuminate\Routing\Middleware\ThrottleRequests::class,               // throttle:*
+```
+
+`auth:sanctum` đứng trên, nên viết `['throttle:api', 'auth:sanctum']` hay ngược lại đều cho
+cùng kết quả. Đối chiếu: `/api/login` không có middleware xác thực nào, nên `$request->user()`
+luôn là `null` ở đó — đó là lý do limiter `login` buộc phải đọc email từ input thô và tự phòng
+vệ kiểu dữ liệu.
+
+**Hệ quả chưa được xử lý:** vì throttle chạy *sau* xác thực, một request mang token sai bị
+`auth:sanctum` trả 401 **trước khi** chạm tới `throttle:api`, tức là **không bị đếm**. Kẻ tấn
+công có thể bắn token rác vào `/api/patients` không giới hạn, mỗi request vẫn tốn một truy vấn
+tra token trong bảng `personal_access_tokens`.
+
+Bịt lỗ này cần một throttle theo IP đặt ở **tầng global middleware** (`bootstrap/app.php`,
+`$middleware->api(prepend: ...)`), vì middleware toàn cục chạy trước mọi route middleware và
+không bị bảng priority sắp lại. Đề xuất khoảng 300/phút theo IP làm lưới ngoài cùng — rộng hơn
+`api` (120) nhiều lần để không bao giờ chạm phải người dùng thật, chỉ chặn lưu lượng rác.
+Chưa làm trong task này vì nó đụng vào tầng global và cần cấu hình trusted proxies trước mới
+đo đúng IP; ghi lại ở đây để không quên.
+
 ### 9.4. Response 429 — không phải viết thêm gì
 
 `ThrottleRequestsException` kế thừa `TooManyRequestsHttpException`, implement
@@ -1002,9 +1042,18 @@ $exceptions->render(function (HttpExceptionInterface $exception, Request $reques
     $message = $exception->getMessage()
         ?: (HttpResponse::$statusTexts[$status] ?? ExceptionMessage::REQUEST_FAILED);
 
-    return ApiResponse::error($message, status: $status);
+    $response = ApiResponse::error($message, status: $status);
+    $response->headers->add($exception->getHeaders());
+
+    return $response;
 });
 ```
+
+Dòng `headers->add()` là bắt buộc và từng bị thiếu. `ApiResponse::error()` dựng một
+`JsonResponse` mới hoàn toàn, không biết gì về exception, nên bốn header rate limit — do
+`buildException()` nhét vào chính exception — sẽ biến mất nếu không copy lại. Đặt ở nhánh
+`HttpExceptionInterface` chung thay vì nhánh riêng cho `ThrottleRequestsException` để mọi
+exception mang header đều được cứu (`503` kèm `Retry-After`, `405` kèm `Allow`, …).
 
 Nên 429 **tự động rơi vào envelope chuẩn**:
 
