@@ -68,6 +68,17 @@ export async function apiRequest(path, options = {}) {
             window.dispatchEvent(new CustomEvent('clinic:unauthorized'));
         }
 
+        // Server đã nói phải chờ bao lâu; không chuyển tiếp thông tin đó thì
+        // người dùng chỉ còn cách bấm lại liên tục, khiến bộ đếm không kịp hết hạn.
+        if (response.status === 429) {
+            const retryAfter = Number(response.headers.get('Retry-After')) || 60;
+
+            throw new ApiError(
+                `Bạn đã thao tác quá nhanh. Vui lòng thử lại sau ${retryAfter} giây.`,
+                { status: 429, retryAfter, payload },
+            );
+        }
+
         throw new ApiError(payload?.message ?? 'Yêu cầu không thành công.', {
             status: response.status,
             errors: payload?.errors ?? {},
