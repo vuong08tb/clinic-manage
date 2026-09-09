@@ -374,6 +374,52 @@ class UserTest extends TestCase
         ])->assertOk();
     }
 
+    public function test_search_treats_like_wildcards_as_literal_characters(): void
+    {
+        $admin = $this->createUser('ADMIN', ['name' => 'Primary Admin']);
+        $this->createUser('RECEPTIONIST', [
+            'name' => 'Discount 50% Desk',
+            'email' => 'discount@clinic.test',
+        ]);
+        $this->createUser('RECEPTIONIST', [
+            'name' => 'Regular Desk',
+            'email' => 'regular@clinic.test',
+        ]);
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/users?q=50%25')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJson([
+                'data' => [
+                    ['email' => 'discount@clinic.test'],
+                ],
+            ]);
+    }
+
+    public function test_inactive_filter_accepts_a_falsy_query_value(): void
+    {
+        $admin = $this->createUser('ADMIN', ['name' => 'Primary Admin']);
+        $this->createUser('RECEPTIONIST', [
+            'email' => 'active@clinic.test',
+            'is_active' => true,
+        ]);
+        $this->createUser('RECEPTIONIST', [
+            'email' => 'inactive@clinic.test',
+            'is_active' => false,
+        ]);
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/users?is_active=0')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJson([
+                'data' => [
+                    ['email' => 'inactive@clinic.test'],
+                ],
+            ]);
+    }
+
     /**
      * Create an active user assigned to the requested seeded role.
      *

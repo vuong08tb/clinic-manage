@@ -29,7 +29,7 @@ class UserController extends Controller
      */
     public function index(ListUsersRequest $request): JsonResponse
     {
-        $users = $this->service->paginate($request->validated());
+        $users = $this->service->paginate($request->filters());
 
         return ApiResponse::paginated(
             UserResource::collection($users),

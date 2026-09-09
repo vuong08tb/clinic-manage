@@ -35,6 +35,29 @@ class ListUsersRequest extends FormRequest
     }
 
     /**
+     * Return the validated filters with query-string scalars cast to real types.
+     *
+     * Validation rules check shape but never cast, so "1" would otherwise reach the
+     * service as a string and force it to guess types a second time.
+     *
+     * @return array<string, mixed>
+     */
+    public function filters(): array
+    {
+        $filters = $this->validated();
+
+        if (isset($filters['is_active'])) {
+            $filters['is_active'] = $this->boolean('is_active');
+        }
+
+        if (isset($filters['per_page'])) {
+            $filters['per_page'] = (int) $filters['per_page'];
+        }
+
+        return $filters;
+    }
+
+    /**
      * Get custom validation messages for user list filters.
      *
      * @return array<string, string>
