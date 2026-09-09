@@ -6,9 +6,8 @@ use App\Constants\DoctorMessage;
 use App\Constants\UserMessage;
 use App\Models\Role;
 use App\Models\User;
-use Closure;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use LogicException;
@@ -18,6 +17,11 @@ use LogicException;
  */
 class UserService
 {
+
+    private const CREATED_AS_ACTIVE = true;
+
+    private ?int $adminRoleId = null;
+
     /**
      * Paginate users with validated management filters.
      *
@@ -29,12 +33,11 @@ class UserService
 
         if (isset($filters['q']) && trim((string) $filters['q']) !== '') {
             $term = mb_strtolower(trim((string) $filters['q']));
-            $pattern = "%{$term}%";
-
+            $pattern = '%'.addcslashes($term, '%_\\').'%';
             $query->where(function ($query) use ($pattern): void {
                 $query
-                    ->whereRaw('LOWER(name) LIKE ?', [$pattern])
-                    ->orWhereRaw('LOWER(email) LIKE ?', [$pattern]);
+                    ->whereRaw("LOWER(name) LIKE ? ESCAPE '\\'", [$pattern])
+                    ->orWhereRaw("LOWER(email) LIKE ? ESCAPE '\\'", [$pattern]);
             });
         }
 
@@ -42,16 +45,8 @@ class UserService
             $query->where('role_id', $filters['role_id']);
         }
 
-        if (array_key_exists('is_active', $filters) && $filters['is_active'] !== null) {
-            $isActive = filter_var(
-                $filters['is_active'],
-                FILTER_VALIDATE_BOOLEAN,
-                FILTER_NULL_ON_FAILURE,
-            );
-
-            if ($isActive !== null) {
-                $query->where('is_active', $isActive);
-            }
+        if (isset($filters['is_active'])) {
+            $query->where('is_active', $filters['is_active']);
         }
 
         return $query
@@ -66,7 +61,7 @@ class UserService
      */
     public function create(array $data): User
     {
-        $data['is_active'] = true;
+        $data['is_active'] = self::CREATED_AS_ACTIVE;
         $user = User::query()->create($data);
 
         return $user->load('role');
@@ -93,18 +88,20 @@ class UserService
             return $user->refresh()->load('role');
         }
 
-        return $this->mutateWithAdminGuard(
-            $user,
-            'role_id',
-            function (User $lockedUser) use ($data): void {
-                $this->assertDoctorRoleChangeAllowed(
-                    $lockedUser,
-                    (int) $data['role_id'],
-                );
-                $lockedUser->update($data);
-            },
-            (int) $data['role_id'],
-        );
+        $newRoleId = (int) $data['role_id'];
+
+        return DB::transaction(function () use ($user, $data, $newRoleId): User {
+            $lockedUser = $this->lockUserAndActiveAdmins($user);
+
+            if ((int) $lockedUser->role_id !== $newRoleId) {
+                $this->assertNotLastActiveAdmin($lockedUser, 'role_id');
+            }
+
+            $this->assertDoctorRoleChangeAllowed($lockedUser, $newRoleId);
+            $lockedUser->update($data);
+
+            return $lockedUser->refresh()->load('role');
+        });
     }
 
     /**
@@ -140,81 +137,95 @@ class UserService
      */
     private function setInactiveWithGuard(User $user): User
     {
-        return $this->mutateWithAdminGuard(
-            $user,
-            'is_active',
-            function (User $lockedUser): void {
-                $lockedUser->update(['is_active' => false]);
-                $lockedUser->tokens()->delete();
-            },
-        );
-    }
+        return DB::transaction(function () use ($user): User {
+            $lockedUser = $this->lockUserAndActiveAdmins($user);
 
-    /**
-     * Serialize mutations that can reduce the number of active administrators.
-     *
-     * @param  Closure(User): void  $mutation
-     */
-    private function mutateWithAdminGuard(
-        User $user,
-        string $field,
-        Closure $mutation,
-        ?int $newRoleId = null,
-    ): User {
-        return DB::transaction(function () use ($user, $field, $mutation, $newRoleId): User {
-            $adminRoleId = Role::query()
-                ->where('name', Role::ADMIN)
-                ->value('id');
+            $this->assertNotLastActiveAdmin($lockedUser, 'is_active');
 
-            if ($adminRoleId === null) {
-                throw new LogicException(UserMessage::ADMIN_ROLE_NOT_CONFIGURED);
-            }
-
-            $activeAdminIds = User::query()
-                ->where('role_id', $adminRoleId)
-                ->where('is_active', true)
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->pluck('id');
-
-            $lockedUser = User::query()
-                ->lockForUpdate()
-                ->findOrFail($user->getKey());
-
-            $reducesActiveAdmins = $field === 'is_active'
-                || (int) $lockedUser->role_id !== $newRoleId;
-
-            if ($reducesActiveAdmins) {
-                $this->assertNotLastActiveAdmin(
-                    $lockedUser,
-                    $activeAdminIds,
-                    $adminRoleId,
-                    $field,
-                );
-            }
-
-            $mutation($lockedUser);
+            $lockedUser->update(['is_active' => false]);
+            $lockedUser->tokens()->delete();
 
             return $lockedUser->refresh()->load('role');
         });
     }
 
     /**
+     * Lock the target account together with every active administrator.
+     *
+     * Both row sets are taken in one statement ordered by id, so concurrent
+     * transactions always request the same rows in the same order and cannot end up
+     * each holding a row the other one still needs.
+     */
+    private function lockUserAndActiveAdmins(User $user): User
+    {
+        $adminRoleId = $this->adminRoleId();
+
+        $lockedRows = User::query()
+            ->where(function ($query) use ($user, $adminRoleId): void {
+                $query
+                    ->where('id', $user->getKey())
+                    ->orWhere(function ($query) use ($adminRoleId): void {
+                        $query
+                            ->where('role_id', $adminRoleId)
+                            ->where('is_active', true);
+                    });
+            })
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        $lockedUser = $lockedRows->firstWhere('id', $user->getKey());
+
+        if ($lockedUser === null) {
+            throw (new ModelNotFoundException)->setModel(User::class, [$user->getKey()]);
+        }
+
+        return $lockedUser;
+    }
+
+    /**
+     * Resolve the ADMIN role id, failing loudly when the role is missing.
+     */
+    private function adminRoleId(): int
+    {
+        if ($this->adminRoleId !== null) {
+            return $this->adminRoleId;
+        }
+
+        $adminRoleId = Role::query()
+            ->where('name', Role::ADMIN)
+            ->value('id');
+
+        if ($adminRoleId === null) {
+            throw new LogicException(UserMessage::ADMIN_ROLE_NOT_CONFIGURED);
+        }
+
+        return $this->adminRoleId = (int) $adminRoleId;
+    }
+
+    /**
      * Reject mutations that would remove the final active administrator.
      *
-     * @param  Collection<int, int>  $activeAdminIds
+     * Reading without a fresh lock is safe here: lockUserAndActiveAdmins already holds
+     * every row this query can match.
      *
      * @throws ValidationException
      */
-    private function assertNotLastActiveAdmin(
-        User $user,
-        Collection $activeAdminIds,
-        int $adminRoleId,
-        string $field,
-    ): void {
-        $isActiveAdmin = (int) $user->role_id === $adminRoleId && $user->is_active;
+    private function assertNotLastActiveAdmin(User $user, string $field): void
+    {
+        $isActiveAdmin = (int) $user->role_id === $this->adminRoleId() && $user->is_active;
 
-        if (! $isActiveAdmin || $activeAdminIds->count() > 1) {
+        if (! $isActiveAdmin) {
+            return;
+        }
+
+        $anotherActiveAdminExists = User::query()
+            ->where('role_id', $this->adminRoleId())
+            ->where('is_active', true)
+            ->whereKeyNot($user->getKey())
+            ->exists();
+
+        if ($anotherActiveAdminExists) {
             return;
         }
 
