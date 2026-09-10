@@ -2,20 +2,37 @@
 
 Laravel 13 · PHP 8.3 · PostgreSQL 16 · Docker Compose
 
+Clinic management API with a Blade + Alpine.js web interface for appointments,
+examinations, prescriptions, inventory, invoices and payments.
+
 1. [Quick Start](#1-quick-start) · 2. [Environment](#2-environment) · 3. [Architecture](#3-architecture) ·
 4. [Commands](#4-commands) · 5. [RBAC Global](#5-rbac-global) ·
-6. [PayPal & Visa](#6-paypal--visa) · 7. [PostgreSQL](#7-postgresql)
+6. [PayPal & Visa](#6-paypal--visa) · 7. [PostgreSQL](#7-postgresql) ·
 
 ---
 
 ## 1. Quick Start
+
+**Prerequisites:** Docker with Docker Compose, and Node.js/npm on the host. The locked
+Vite dependencies require Node `^20.19.0 || >=22.12.0`. PHP and Composer run inside the app
+container. Run the commands below from the repository root, with ports `8000` and `5433`
+available.
+
+Check your host versions before installing dependencies:
+
+```bash
+node -v   # example: v24.18.0 (meets the Node requirement above)
+npm -v    # example: 11.16.0
+```
+
+Then start the project:
 
 ```bash
 cp .env.example .env
 docker compose up -d --build
 docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate --seed
-npm install && npm run build          # needs Node on the host
+npm ci && npm run build               # install the locked dependencies on the host
 ```
 
 API at `http://localhost:8000/api`, web pages at `http://localhost:8000`.
@@ -28,6 +45,35 @@ Sign in with `admin@clinic.test` / `Admin@123`.
   session-backed page returns 500.
 - **PayPal endpoints need real sandbox credentials** — see [section 6](#6-paypal--visa).
 
+### Try the API
+
+Import [postman_collection.json](postman_collection.json) into Postman and keep its
+`base_url` collection variable at `http://localhost:8000` (without `/api`). Run the
+**00 — Auth** folder first: login requests save each role's token automatically. Then run
+**01 — Luồng chính** in order; requests save the IDs needed by subsequent requests.
+Payment capture requires buyer approval first; see [section 6](#6-paypal--visa).
+
+Alternatively, log in with curl:
+
+```bash
+curl -sS http://localhost:8000/api/login \
+  -H 'Accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@clinic.test","password":"Admin@123"}'
+```
+
+Copy `data.token` from the response and replace `YOUR_TOKEN` below:
+
+```bash
+curl -sS http://localhost:8000/api/me \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer YOUR_TOKEN'
+```
+
+Both requests should return HTTP 200 with `success: true`. Protected endpoints require
+the Bearer token; business endpoints also check the user's permissions. To revoke the
+current token, send `POST /api/logout` with the same headers.
+
 ---
 
 ## 2. Environment
@@ -37,12 +83,19 @@ Values that matter in `.env`; the rest are Laravel defaults.
 | Variable | Description |
 | -------- | ----------- |
 | `APP_KEY` | Empty in the example file — fill with `php artisan key:generate` |
+| `APP_URL=http://localhost:8000` | Browser-facing app URL; also used to build PayPal return/cancel URLs |
 | `DB_HOST=db` | Database host inside the Compose network (the `db` service) |
 | `DB_DATABASE=clinic_app` / `DB_USERNAME=clinic` / `DB_PASSWORD=secret` | Must match the `db` service in `docker-compose.yml` |
 | `EXAMINATION_FEE=100000` | Examination fee in VND, added to every invoice subtotal |
 | `LOW_STOCK_THRESHOLD=5` | Stock at or below this level counts as running low |
 | `PAYPAL_MODE=sandbox` / `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` | Sandbox credentials; placeholders by default |
 | `PAYPAL_CURRENCY=USD` / `PAYPAL_EXCHANGE_RATE_VND=25400` | Invoices are in VND, PayPal charges in USD |
+
+To connect from a host database client, use `localhost:5433`, database `clinic_app`,
+user `clinic`, password `secret`. The app container uses `db:5432` instead.
+
+After editing `.env`, run `docker compose exec app php artisan config:clear`, then
+`docker compose restart app`.
 
 ---
 
@@ -66,28 +119,42 @@ Every response uses the same envelope: `success`, `message`, and `data` or `erro
 ```bash
 docker compose up -d --build     # build and start
 docker compose restart app       # reload after editing .env
-docker compose down -v           # stop and drop volumes (needed when composer.lock changes)
+docker compose exec app composer install  # sync vendor after composer.lock changes
 
 docker compose exec app php artisan migrate --seed        # migrate + every seeder
-docker compose exec app php artisan migrate:fresh --seed  # drop everything and rebuild
 docker compose exec app php artisan migrate:status
 
 docker compose exec app php artisan test
 docker compose exec app vendor/bin/pint --test
 docker compose exec app php artisan route:list --path=appointments
 docker compose exec app tail -f storage/logs/laravel-$(date +%Y-%m-%d).log
+
+npm run test:frontend            # frontend tests on the host
+npm run build                   # rebuild assets after frontend changes
 ```
 
-Tests run on in-memory SQLite (`phpunit.xml`) and never touch the PostgreSQL container.
+PHP tests run on in-memory SQLite (`phpunit.xml`) and never touch the PostgreSQL container.
+
+To stop the stack while keeping database data, run `docker compose down`.
 
 `--seed` runs `DatabaseSeeder`, which chains `RoleSeeder → RbacSeeder → AdminSeeder →
 DemoSeeder` — one command is all that is needed. `DemoSeeder` builds a full sample flow
 (appointment → examination → prescription → invoice → payment). Roles, permissions and staff
 accounts are upserted and safe to re-run; the clinical sample data is not deduplicated, so
-re-seeding an existing database is better done with `migrate:fresh --seed`.
+re-seeding disposable demo data is better done with `migrate:fresh --seed`.
+
+**Reset commands — use only when you intend to delete data:**
+
+```bash
+docker compose exec app php artisan migrate:fresh --seed  # drop all tables and reseed
+docker compose down -v  # remove containers and volumes, including all PostgreSQL data
+```
+
+Neither reset is required just to update Composer dependencies. The `composer install`
+command above requires the app container to be running.
 
 To repair a drifted permission catalog without rebuilding the database:
-`php artisan db:seed --class=RbacSeeder`.
+`docker compose exec app php artisan db:seed --class=RbacSeeder`.
 
 | Role | Email | Password |
 | ---- | ----- | -------- |
@@ -132,17 +199,26 @@ route action `MedicineController@lowStock` maps to the `LOWSTOCK` action in `con
 
 **Credentials.** developer.paypal.com → toggle **Sandbox** → **Apps & Credentials** →
 **Create App** (type *Merchant*). Copy Client ID and Secret into `.env`, then
-`docker compose restart app`.
+`docker compose exec app php artisan config:clear` and `docker compose restart app`.
 
-**`method=paypal` vs `method=visa`.** Both run the identical backend flow —
-`POST /invoices/{id}/payments` creates the PayPal Order, `POST /payments/{id}/capture`
-captures it. The only difference is the funding source the buyer picks on PayPal's hosted
-approval page (`approval_url` from the `store` response): PayPal balance, or a Sandbox test
-Visa card. This project is API-only; there is no client-side card-fields UI.
+**`method=paypal` vs `method=visa`.** Both use `POST /api/invoices/{id}/payments` to create
+a payment and PayPal Order, then `POST /api/payments/{id}/capture` to capture the approved
+order. The web interface has two approval flows:
 
-**Test Visa card.** Dashboard → **Testing Tools** → **Sandbox Accounts** → open the
-**Personal** (buyer) account → **Funding**, or add a card during checkout — PayPal generates
-test numbers and never charges anything real.
+- **PayPal:** redirects to the returned `approval_url`. After buyer approval, the browser
+  returns to `/payments/return`, where the frontend finds the payment and calls capture.
+  Cancellation returns to `/payments/cancel`.
+- **Visa:** opens a card-entry modal on the invoice page. It obtains a client token from
+  `GET /api/payments/paypal/client-token`, mounts PayPal Web SDK Card Fields, submits the
+  card details through the SDK, then calls capture after successful approval. If the SDK
+  reports cards ineligible or the form fails to load, the UI offers PayPal checkout.
+
+Keep `APP_URL` aligned with the address used to open the app so return/cancel URLs lead
+back to the same web interface. For local testing, keep `PAYPAL_MODE=sandbox` and use
+sandbox buyer credentials or sandbox test card details.
+
+When testing the PayPal flow in Postman, open `approval_url` in a browser and approve the
+order before running capture. Creating an order alone does not complete payment.
 
 ---
 
@@ -240,3 +316,5 @@ Three rules follow:
 - **The audit write cannot break the business write.** Rows are queued with
   `DB::afterCommit()`: the payload is built eagerly at the moment of the change, but the
   insert runs only after the surrounding transaction commits.
+
+---
