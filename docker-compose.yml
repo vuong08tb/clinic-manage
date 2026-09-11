@@ -17,6 +17,22 @@ services:
             db:
                 condition: service_healthy
         command: php artisan serve --host=0.0.0.0 --port=8000
+    scheduler:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: clinic_scheduler
+        restart: unless-stopped
+        working_dir: /var/www
+        environment:
+            TZ: Asia/Ho_Chi_Minh
+        volumes:
+            - .:/var/www
+            - /var/www/vendor
+        depends_on:
+            db:
+                condition: service_healthy
+        command: php artisan schedule:work
 
     db:
         image: postgres:16
