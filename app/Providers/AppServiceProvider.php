@@ -7,11 +7,11 @@ use App\Models\Appointment;
 use App\Models\Examination;
 use App\Models\Invoice;
 use App\Models\Medicine;
+use App\Models\Patient;
 use App\Models\Payment;
 use App\Models\Prescription;
 use App\Models\PrescriptionItem;
 use App\Models\User;
-use App\Models\Patient;
 use App\Observers\AppointmentObserver;
 use App\Observers\ExaminationObserver;
 use App\Observers\InvoiceObserver;
@@ -25,7 +25,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
-
 
 class AppServiceProvider extends ServiceProvider
 {
