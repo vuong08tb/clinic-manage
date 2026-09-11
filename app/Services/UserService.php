@@ -17,7 +17,6 @@ use LogicException;
  */
 class UserService
 {
-
     private const CREATED_AS_ACTIVE = true;
 
     private ?int $adminRoleId = null;

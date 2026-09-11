@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Prescription;
 use App\Models\PrescriptionItem;
 use App\Models\User;
+use App\Models\Patient;
 use App\Observers\AppointmentObserver;
 use App\Observers\ExaminationObserver;
 use App\Observers\InvoiceObserver;
@@ -24,6 +25,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -53,6 +55,8 @@ class AppServiceProvider extends ServiceProvider
             ActivityLogSubject::MEDICINE => Medicine::class,
             ActivityLogSubject::INVOICE => Invoice::class,
             ActivityLogSubject::PAYMENT => Payment::class,
+
+            ActivityLogSubject::PATIENT => Patient::class,
         ]);
 
         // Observers run inline rather than after commit: Model::finishSave() overwrites the

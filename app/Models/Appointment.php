@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 /**
  * Represent a scheduled clinical appointment.
  */
-#[Fillable(['patient_id', 'doctor_id', 'scheduled_at', 'status', 'reason'])]
+#[Fillable(['patient_id', 'doctor_id', 'scheduled_at', 'status', 'reason', 'reminded_at'])]
 class Appointment extends Model
 {
     /** @use HasFactory<AppointmentFactory> */
@@ -105,6 +105,7 @@ class Appointment extends Model
     {
         return [
             'scheduled_at' => 'datetime',
+            'reminded_at' => 'datetime',
         ];
     }
 }

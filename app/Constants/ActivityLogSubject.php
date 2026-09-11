@@ -25,4 +25,6 @@ final class ActivityLogSubject
     public const INVOICE = 'invoice';
 
     public const PAYMENT = 'payment';
+
+    public const PATIENT = 'patient';
 }
