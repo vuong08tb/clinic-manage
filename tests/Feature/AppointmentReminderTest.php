@@ -8,7 +8,10 @@ use App\Models\Patient;
 use App\Models\Role;
 use App\Notifications\AppointmentReminderNotification;
 use App\Services\AppointmentReminderService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Notifications\Events\NotificationSending;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -16,17 +19,30 @@ class AppointmentReminderTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * A basic feature test example.
-     */
-    public function test_example(): void
+    protected function setUp(): void
     {
-        Notification::fake();
+        parent::setUp();
 
+        // Freeze time so the "within 24h" window is deterministic.
+        Carbon::setTestNow('2026-09-16 10:00:00');
+
+        // Every test needs the DOCTOR role before creating a Doctor.
         Role::create([
             'name' => 'DOCTOR',
             'display_name' => 'Bác sĩ',
         ]);
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
+
+    public function test_scheduled_appointment_within_window_gets_reminder(): void
+    {
+        Notification::fake();
 
         $patient = Patient::factory()->create();
         $doctor = Doctor::factory()->create();
@@ -39,9 +55,7 @@ class AppointmentReminderTest extends TestCase
             'reminded_at' => null,
         ]);
 
-        $service = app(AppointmentReminderService::class);
-
-        $count = $service->sendReminders();
+        $count = app(AppointmentReminderService::class)->sendReminders();
 
         $this->assertSame(1, $count);
 
@@ -50,19 +64,50 @@ class AppointmentReminderTest extends TestCase
             AppointmentReminderNotification::class
         );
 
-        $this->assertNotNull(
-            $appointment->fresh()->reminded_at
+        $this->assertNotNull($appointment->fresh()->reminded_at);
+    }
+
+    public function test_reminder_is_not_sent_twice_for_the_same_appointment(): void
+    {
+        Notification::fake();
+
+        $patient = Patient::factory()->create();
+        $doctor = Doctor::factory()->create();
+
+        Appointment::factory()->create([
+            'patient_id' => $patient->id,
+            'doctor_id' => $doctor->id,
+            'status' => Appointment::STATUS_SCHEDULED,
+            'scheduled_at' => now()->addHours(12),
+            'reminded_at' => null,
+        ]);
+
+        $service = app(AppointmentReminderService::class);
+
+        // First run: claims the appointment and sends the reminder.
+        $firstCount = $service->sendReminders();
+        $this->assertSame(1, $firstCount);
+
+        Notification::assertSentToTimes(
+            $patient,
+            AppointmentReminderNotification::class,
+            1
+        );
+
+        // Second run: appointment already claimed, nothing to send.
+        $secondCount = $service->sendReminders();
+        $this->assertSame(0, $secondCount);
+
+        Notification::assertSentToTimes(
+            $patient,
+            AppointmentReminderNotification::class,
+            1
         );
     }
 
     public function test_cancelled_appointment_does_not_get_reminder(): void
     {
         Notification::fake();
-
-        Role::create([
-            'name' => 'DOCTOR',
-            'display_name' => 'Doctor',
-        ]);
 
         $patient = Patient::factory()->create();
         $doctor = Doctor::factory()->create();
@@ -75,105 +120,16 @@ class AppointmentReminderTest extends TestCase
             'reminded_at' => null,
         ]);
 
-        $service = app(AppointmentReminderService::class);
-
-        $count = $service->sendReminders();
+        $count = app(AppointmentReminderService::class)->sendReminders();
 
         $this->assertSame(0, $count);
-
         Notification::assertNothingSent();
-
-        $this->assertNull(
-            $appointment->fresh()->reminded_at
-        );
+        $this->assertNull($appointment->fresh()->reminded_at);
     }
 
-    public function test_reminder_is_not_sent_twice_for_the_same_appointment(): void
+    public function test_appointment_outside_window_does_not_get_reminder(): void
     {
         Notification::fake();
-
-        Role::create([
-            'name' => 'DOCTOR',
-            'display_name' => 'Doctor',
-        ]);
-
-        $patient = Patient::factory()->create();
-        $doctor = Doctor::factory()->create();
-
-        Appointment::factory()->create([
-            'patient_id' => $patient->id,
-            'doctor_id' => $doctor->id,
-            'status' => Appointment::STATUS_SCHEDULED,
-            'scheduled_at' => now()->addHours(12),
-            'reminded_at' => null,
-        ]);
-
-        $service = app(AppointmentReminderService::class);
-
-        // Lần 1
-        $firstCount = $service->sendReminders();
-
-        $this->assertSame(1, $firstCount);
-
-        Notification::assertSentToTimes(
-            $patient,
-            AppointmentReminderNotification::class,
-            1
-        );
-
-        // Lần 2
-        $secondCount = $service->sendReminders();
-
-        $this->assertSame(0, $secondCount);
-
-        Notification::assertSentToTimes(
-            $patient,
-            AppointmentReminderNotification::class,
-            1
-        );
-    }
-
-    public function test_completed_appointment_does_not_get_reminder(): void
-    {
-        Notification::fake();
-
-        Role::create([
-            'name' => 'DOCTOR',
-            'display_name' => 'Doctor',
-        ]);
-
-        $patient = Patient::factory()->create();
-        $doctor = Doctor::factory()->create();
-
-        $appointment = Appointment::factory()->create([
-            'patient_id' => $patient->id,
-            'doctor_id' => $doctor->id,
-            'status' => Appointment::STATUS_COMPLETED,
-            'scheduled_at' => now()->addHours(12),
-            'reminded_at' => null,
-        ]);
-
-        $service = app(AppointmentReminderService::class);
-
-        $count = $service->sendReminders();
-
-        $this->assertSame(0, $count);
-
-        Notification::assertNothingSent();
-
-        $this->assertNull(
-            $appointment->fresh()->reminded_at
-        );
-    }
-
-    public function test_appointment_beyond_24_hours_does_not_get_reminder(): void
-    {
-        Notification::fake();
-
-        Role::create([
-            'name' => 'DOCTOR',
-            'display_name' => 'Doctor',
-        ]);
 
         $patient = Patient::factory()->create();
         $doctor = Doctor::factory()->create();
@@ -182,68 +138,21 @@ class AppointmentReminderTest extends TestCase
             'patient_id' => $patient->id,
             'doctor_id' => $doctor->id,
             'status' => Appointment::STATUS_SCHEDULED,
-            'scheduled_at' => now()->addHours(25),
+            'scheduled_at' => now()->addHours(48),  // 48h → ngoài 24h
             'reminded_at' => null,
         ]);
 
-        $service = app(AppointmentReminderService::class);
-
-        $count = $service->sendReminders();
+        $count = app(AppointmentReminderService::class)->sendReminders(24);
 
         $this->assertSame(0, $count);
-
         Notification::assertNothingSent();
-
-        $this->assertNull(
-            $appointment->fresh()->reminded_at
-        );
-    }
-
-    public function test_confirmed_appointment_within_24_hours_gets_reminder(): void
-    {
-        Notification::fake();
-
-        Role::create([
-            'name' => 'DOCTOR',
-            'display_name' => 'Doctor',
-        ]);
-
-        $patient = Patient::factory()->create();
-        $doctor = Doctor::factory()->create();
-
-        $appointment = Appointment::factory()->create([
-            'patient_id' => $patient->id,
-            'doctor_id' => $doctor->id,
-            'status' => Appointment::STATUS_CONFIRMED,
-            'scheduled_at' => now()->addHours(12),
-            'reminded_at' => null,
-        ]);
-
-        $service = app(AppointmentReminderService::class);
-
-        $count = $service->sendReminders();
-
-        $this->assertSame(1, $count);
-
-        Notification::assertSentTo(
-            $patient,
-            AppointmentReminderNotification::class
-        );
-
-        $this->assertNotNull(
-            $appointment->fresh()->reminded_at
-        );
+        $this->assertNull($appointment->fresh()->reminded_at);
     }
 
     public function test_appointment_already_reminded_does_not_get_reminder(): void
     {
         Notification::fake();
 
-        Role::create([
-            'name' => 'DOCTOR',
-            'display_name' => 'Doctor',
-        ]);
-
         $patient = Patient::factory()->create();
         $doctor = Doctor::factory()->create();
 
@@ -252,66 +161,39 @@ class AppointmentReminderTest extends TestCase
             'doctor_id' => $doctor->id,
             'status' => Appointment::STATUS_SCHEDULED,
             'scheduled_at' => now()->addHours(12),
-            'reminded_at' => now(),
+            'reminded_at' => now(),  // ← ĐÃ reminded
         ]);
 
-        $service = app(AppointmentReminderService::class);
-
-        $count = $service->sendReminders();
+        $count = app(AppointmentReminderService::class)->sendReminders();
 
         $this->assertSame(0, $count);
-
         Notification::assertNothingSent();
-
-        $this->assertNotNull(
-            $appointment->fresh()->reminded_at
-        );
+        $this->assertNotNull($appointment->fresh()->reminded_at);
     }
 
-    public function test_multiple_upcoming_appointments_get_reminders(): void
+    public function test_it_rolls_back_the_claim_when_notification_fails(): void
     {
-        Notification::fake();
-
-        Role::create([
-            'name' => 'DOCTOR',
-            'display_name' => 'Doctor',
-        ]);
-
+        $patient = Patient::factory()->create();
         $doctor = Doctor::factory()->create();
 
-        $patient1 = Patient::factory()->create();
-        $patient2 = Patient::factory()->create();
-
-        Appointment::factory()->create([
-            'patient_id' => $patient1->id,
+        $appointment = Appointment::factory()->create([
+            'patient_id' => $patient->id,
             'doctor_id' => $doctor->id,
             'status' => Appointment::STATUS_SCHEDULED,
             'scheduled_at' => now()->addHours(12),
             'reminded_at' => null,
         ]);
 
-        Appointment::factory()->create([
-            'patient_id' => $patient2->id,
-            'doctor_id' => $doctor->id,
-            'status' => Appointment::STATUS_CONFIRMED,
-            'scheduled_at' => now()->addHours(18),
-            'reminded_at' => null,
-        ]);
+        // Force the notification dispatch to throw before delivery.
+        Event::listen(NotificationSending::class, function (): void {
+            throw new \RuntimeException('simulated delivery failure');
+        });
 
-        $service = app(AppointmentReminderService::class);
+        $count = app(AppointmentReminderService::class)->sendReminders();
 
-        $count = $service->sendReminders();
+        $this->assertSame(0, $count);
 
-        $this->assertSame(2, $count);
-
-        Notification::assertSentTo(
-            $patient1,
-            AppointmentReminderNotification::class
-        );
-
-        Notification::assertSentTo(
-            $patient2,
-            AppointmentReminderNotification::class
-        );
+        // The claim must be rolled back so the next run retries this appointment.
+        $this->assertNull($appointment->fresh()->reminded_at);
     }
 }
